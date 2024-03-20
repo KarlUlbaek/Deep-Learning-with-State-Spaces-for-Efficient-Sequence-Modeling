@@ -34,6 +34,7 @@ class ModelArgs:
     d_model: int
     n_layer: int
     vocab_size: int
+    discrete_vocab: bool = False
     d_state: int = 16
     expand: int = 2
     dt_rank: Union[int, str] = 'auto'
@@ -58,8 +59,12 @@ class Mamba(nn.Module):
         """Full Mamba model."""
         super().__init__()
         self.args = args
-        
-        self.embedding = nn.Embedding(args.vocab_size, args.d_model)
+
+        if self.args.discrete_vocab:
+            self.embedding = nn.Embedding(args.vocab_size, args.d_model)
+        else:
+            self.embedding = nn.Linear(args.vocab_size, args.d_model)
+
         self.layers = nn.ModuleList([ResidualBlock(args) for _ in range(args.n_layer)])
         self.norm_f = RMSNorm(args.d_model)
 
