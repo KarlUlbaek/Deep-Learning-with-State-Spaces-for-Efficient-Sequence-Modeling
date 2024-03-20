@@ -20,6 +20,8 @@ L = 128
 B = 16
 
 
+
+# git test
 modelargs = ModelArgs(d_model=model_D, n_layer=1, vocab_size=data_D, discrete_vocab=False)
 mamba_slow = Mamba_slow(modelargs)
 s4d = S4Block(model_D, mode="diag", init="legs", transposed=False)
