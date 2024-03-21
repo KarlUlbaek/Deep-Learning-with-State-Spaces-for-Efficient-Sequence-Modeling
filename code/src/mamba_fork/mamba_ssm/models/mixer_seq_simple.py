@@ -89,6 +89,7 @@ class MixerModel(nn.Module):
         d_model: int,
         n_layer: int,
         vocab_size: int,
+        discrete = True,
         ssm_cfg=None,
         norm_epsilon: float = 1e-5,
         rms_norm: bool = False,
@@ -102,7 +103,10 @@ class MixerModel(nn.Module):
         super().__init__()
         self.residual_in_fp32 = residual_in_fp32
 
-        self.embedding = nn.Embedding(vocab_size, d_model, **factory_kwargs)
+        if discrete:
+            self.embedding = nn.Embedding(vocab_size, d_model, **factory_kwargs)
+        else:
+            self.embedding = nn.Linear(vocab_size, d_model)
 
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:
