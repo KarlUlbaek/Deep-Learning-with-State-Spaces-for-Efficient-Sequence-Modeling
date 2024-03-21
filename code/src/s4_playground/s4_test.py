@@ -8,32 +8,38 @@
 # class cifar10data(torch.utils.Dataset):
 import torch
 
-from s4_fork.models.s4.s4d import S4D
-from s4_fork.models.s4.s4 import S4Block
+#from s4_fork.models.s4.s4d import S4D
+#from s4_fork.models.s4.s4 import S4Block
 from mamba_purepython_fork.mamba_slow_model import Mamba as Mamba_slow
 from mamba_purepython_fork.mamba_slow_model import ModelArgs
+
+from mamba_fork.mamba_ssm.modules.mamba_simple import Mamba as Mamba_fast
+
+
 
 
 data_D = 64
 model_D = data_D
 L = 128
 B = 16
-
-
+d = "cuda"
+print(torch.cuda.is_available())
 
 # git test
 modelargs = ModelArgs(d_model=model_D, n_layer=1, vocab_size=data_D, discrete_vocab=False)
-mamba_slow = Mamba_slow(modelargs)
-s4d = S4Block(model_D, mode="diag", init="legs", transposed=False)
-s4 = S4Block(model_D, mode="dplr", init="legs", transposed=False)
+mamba_slow = Mamba_slow(modelargs).to("cuda")
+#from s4_fork.models.s4.s4 import S4Block
+#s4d = S4Block(model_D, mode="diag", init="legs", transposed=False).to(d)
+#s4 = S4Block(model_D, mode="dplr", init="legs", transposed=False).to(d)
+mamba_fast = Mamba_fast(d_model=data_D).to(d)
 
 
+batch = torch.randn(B, L, data_D).to(d)
 
-b = torch.randn(B, L, data_D) #
-
-mamba_slow(b)
-s4d(b)
-s4(b)
+mamba_fast(batch)
+#mamba_slow(batch)
+#s4d(batch)
+#s4(batch)
 
 # import os
 #
