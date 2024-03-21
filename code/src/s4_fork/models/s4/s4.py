@@ -43,8 +43,8 @@ log = get_logger(__name__)
 
 # Try CUDA extension
 try:
-    from extensions.kernels.cauchy import cauchy_mult as cauchy_cuda
-    from extensions.kernels.vandermonde import log_vandermonde_cuda
+    from s4_fork.extensions.kernels.cauchy import cauchy_mult as cauchy_cuda
+    from s4_fork.extensions.kernels.vandermonde import log_vandermonde_cuda
     has_cuda_extension = True
     log.info("CUDA extension for structured kernels (Cauchy and Vandermonde multiplication) found.")
 except:

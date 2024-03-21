@@ -3,8 +3,10 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/code/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/code/src/mamba_fork" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/code/src/s4_fork/extensions/kernels" isTestSource="false" />
     </content>
-    <orderEntry type="jdk" jdkName="12venv310" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="12env" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
