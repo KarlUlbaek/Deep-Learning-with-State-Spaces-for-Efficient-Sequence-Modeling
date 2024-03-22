@@ -73,9 +73,8 @@ class s4MambaModule(nn.Module):
          bias=self.conv1d.bias,
          activation=self.activation,
       )
-      x = self.act(x)
 
-      x, _ = self.s4fft(x)
+      x = self.s4fft(x)
 
       x = x * self.act(z)
       x = rearrange(x, "b d l -> b l d")

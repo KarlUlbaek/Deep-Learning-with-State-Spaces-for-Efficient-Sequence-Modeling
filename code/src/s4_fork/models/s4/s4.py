@@ -1881,7 +1881,7 @@ class FFTConvLean(nn.Module):
 
         if not self.transposed: y = y.transpose(-1, -2)
 
-        return y, None
+        return y
 
 class S4Block(nn.Module):
     """General block design wrapping an inner layer. Currently only layer=FFTConv is supported, but easy to incorporate others.
