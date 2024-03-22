@@ -98,6 +98,7 @@ class MixerModel(nn.Module):
         d_model: int,
         n_layer: int,
         vocab_size: int,
+        d_out = None,
         d_state=16,
         discrete = True,
         ssm_cfg=None,
@@ -119,7 +120,7 @@ class MixerModel(nn.Module):
             self.head = nn.Linear(d_model, vocab_size, **factory_kwargs)
         else:
             self.embedding = nn.Linear(vocab_size, d_model)
-            self.head = nn.Linear(d_model, vocab_size)
+            self.head = nn.Linear(d_model, d_out if d_out is not None else vocab_size)
 
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:

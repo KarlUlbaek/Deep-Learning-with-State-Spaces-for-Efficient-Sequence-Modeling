@@ -1,3 +1,5 @@
 .git/
 .idea/
 code/src/data/
+code/12venv/
+code/data/
