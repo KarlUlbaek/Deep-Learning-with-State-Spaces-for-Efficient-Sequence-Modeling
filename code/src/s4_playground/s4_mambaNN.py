@@ -9,7 +9,7 @@ from causal_conv1d import causal_conv1d_fn
 
 #FFTConvLean(d_model, d_state, mode="dplr", transposed=False, init="legs")
 
-class s4MambaStyleBlock(nn.Module):
+class s4MambaModule(nn.Module):
    def __init__(
       self,
       d_model,
@@ -22,6 +22,8 @@ class s4MambaStyleBlock(nn.Module):
       layer_idx=None,
       device=None,
       dtype=None,
+      mode="dplr",
+      hippo_init ="legs"
    ):
       factory_kwargs = {"device": device, "dtype": dtype}
       super().__init__()
@@ -31,11 +33,12 @@ class s4MambaStyleBlock(nn.Module):
       self.expand = expand
       self.d_inner = int(self.expand * self.d_model)
       self.layer_idx = layer_idx
-
-      self.s4fft = FFTConvLean(self.d_inner, d_state=d_state, mode="dplr", transposed=True, init="legs")
-
       self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
-      self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
+
+      self.s4fft = FFTConvLean(self.d_inner, d_state=d_state, mode=mode, transposed=True, init=hippo_init)
+
+      self.activation = "silu"
+      self.act = nn.SiLU()
 
       self.conv1d = nn.Conv1d(
          in_channels=self.d_inner,
@@ -47,8 +50,8 @@ class s4MambaStyleBlock(nn.Module):
          **factory_kwargs,
       )
 
-      self.activation = "silu"
-      self.act = nn.SiLU()
+      self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
+
 
    def forward(self, hidden_states, inference_params=None):
       batch, seqlen, dim = hidden_states.shape
@@ -70,8 +73,10 @@ class s4MambaStyleBlock(nn.Module):
          bias=self.conv1d.bias,
          activation=self.activation,
       )
+      x = self.act(x)
 
       x, _ = self.s4fft(x)
+
       x = x * self.act(z)
       x = rearrange(x, "b d l -> b l d")
       out = self.out_proj(x)
@@ -91,7 +96,7 @@ if __name__ == "__main__":
    #ffttest = FFTConvLean(d_model, d_state=d_state, mode="dplr", transposed=False, init="legs").to(d)
    #ffttest(batch)
 
-   s4mambastyle = s4MambaStyleBlock(d_model=d_model, d_state=d_state).to(d)
+   s4mambastyle = s4MambaModule(d_model=d_model, d_state=d_state).to(d)
    print(s4mambastyle)
    s4mambastyle(batch)
 

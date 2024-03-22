@@ -11,9 +11,10 @@ import torch
 import torch.nn as nn
 
 from mamba_ssm.models.config_mamba import MambaConfig
-from mamba_ssm.modules.mamba_simple import Mamba, Block
+from mamba_ssm.modules.mamba_simple import S6MambaModule, MambaBlock
 from mamba_ssm.utils.generation import GenerationMixin
 from mamba_ssm.utils.hf import load_config_hf, load_state_dict_hf
+from s4_playground.s4_mambaNN import s4MambaModule
 
 try:
     from mamba_ssm.ops.triton.layernorm import RMSNorm, layer_norm_fn, rms_norm_fn
@@ -23,6 +24,7 @@ except ImportError:
 
 def create_block(
     d_model,
+    d_state,
     ssm_cfg=None,
     norm_epsilon=1e-5,
     rms_norm=False,
@@ -31,17 +33,24 @@ def create_block(
     layer_idx=None,
     device=None,
     dtype=None,
+    s4 = None # {mode:"dplr", hippo_init ="legs"}
 ):
     if ssm_cfg is None:
         ssm_cfg = {}
+
     factory_kwargs = {"device": device, "dtype": dtype}
-    mixer_cls = partial(Mamba, layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
+    if not s4:
+        mixer_cls = partial(S6MambaModule, layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
+    else:
+        mixer_cls = partial(s4MambaModule, layer_idx=layer_idx, **s4, **ssm_cfg, **factory_kwargs)
+
     norm_cls = partial(
         nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon, **factory_kwargs
     )
-    block = Block(
-        d_model,
-        mixer_cls,
+    block = MambaBlock(
+        d_model=d_model,
+        d_state=d_state,
+        mixer_cls=mixer_cls,
         norm_cls=norm_cls,
         fused_add_norm=fused_add_norm,
         residual_in_fp32=residual_in_fp32,
@@ -89,6 +98,7 @@ class MixerModel(nn.Module):
         d_model: int,
         n_layer: int,
         vocab_size: int,
+        d_state=16,
         discrete = True,
         ssm_cfg=None,
         norm_epsilon: float = 1e-5,
@@ -98,6 +108,7 @@ class MixerModel(nn.Module):
         residual_in_fp32=False,
         device=None,
         dtype=None,
+        s4=None  # {mode:"dplr", hippo_init ="legs"}
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -105,8 +116,10 @@ class MixerModel(nn.Module):
 
         if discrete:
             self.embedding = nn.Embedding(vocab_size, d_model, **factory_kwargs)
+            self.head = nn.Linear(d_model, vocab_size, **factory_kwargs)
         else:
             self.embedding = nn.Linear(vocab_size, d_model)
+            self.head = nn.Linear(d_model, vocab_size)
 
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:
@@ -121,13 +134,15 @@ class MixerModel(nn.Module):
         self.layers = nn.ModuleList(
             [
                 create_block(
-                    d_model,
+                    d_model=d_model,
+                    d_state=d_state,
                     ssm_cfg=ssm_cfg,
                     norm_epsilon=norm_epsilon,
                     rms_norm=rms_norm,
                     residual_in_fp32=residual_in_fp32,
                     fused_add_norm=fused_add_norm,
                     layer_idx=i,
+                    s4=s4,  # {mode:"dplr", hippo_init ="legs"}
                     **factory_kwargs,
                 )
                 for i in range(n_layer)
@@ -174,6 +189,8 @@ class MixerModel(nn.Module):
                 prenorm=False,
                 residual_in_fp32=self.residual_in_fp32,
             )
+        hidden_states = self.head(hidden_states)
+
         return hidden_states
 
 

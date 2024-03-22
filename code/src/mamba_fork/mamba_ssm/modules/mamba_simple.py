@@ -29,11 +29,11 @@ except ImportError:
     RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
 
-class Mamba(nn.Module):
+class S6MambaModule(nn.Module):
     def __init__(
         self,
         d_model,
-        d_state=16,
+        d_state,
         d_conv=4,
         expand=2,
         dt_rank="auto",
@@ -295,9 +295,9 @@ class Mamba(nn.Module):
         return conv_state, ssm_state
 
 
-class Block(nn.Module):
+class MambaBlock(nn.Module):
     def __init__(
-        self, dim, mixer_cls, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=False
+        self, d_model, d_state, mixer_cls, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=False
     ):
         """
         Simple block wrapping a mixer class with LayerNorm/RMSNorm and residual connection"
@@ -314,8 +314,8 @@ class Block(nn.Module):
         super().__init__()
         self.residual_in_fp32 = residual_in_fp32
         self.fused_add_norm = fused_add_norm
-        self.mixer = mixer_cls(dim)
-        self.norm = norm_cls(dim)
+        self.mixer = mixer_cls(d_model, d_state)
+        self.norm = norm_cls(d_model)
         if self.fused_add_norm:
             assert RMSNorm is not None, "RMSNorm import fails"
             assert isinstance(
