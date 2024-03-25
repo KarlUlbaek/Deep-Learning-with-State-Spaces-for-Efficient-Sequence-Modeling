@@ -50,6 +50,8 @@ classification = True
 
 if torch.cuda.get_device_name(0) == "NVIDIA GeForce GTX 1080 Ti":
    fast = False
+else:
+   fast = True
 
 from mamba_fork.mamba_ssm.models.mixer_seq_simple import MixerModel as MambaNN
 s6NN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, dropout=dropout,
