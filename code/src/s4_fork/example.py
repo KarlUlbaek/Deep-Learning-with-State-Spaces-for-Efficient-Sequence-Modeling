@@ -58,7 +58,7 @@ parser.add_argument('--epochs', default=100, type=float, help='Training epochs')
 parser.add_argument('--dataset', default='cifar10', choices=['mnist', 'cifar10'], type=str, help='Dataset')
 parser.add_argument('--grayscale', action='store_true', help='Use grayscale CIFAR10')
 # Dataloader
-parser.add_argument('--num_workers', default=4, type=int, help='Number of workers to use for dataloader')
+parser.add_argument('--num_workers', default=6, type=int, help='Number of workers to use for dataloader')
 parser.add_argument('--batch_size', default=64, type=int, help='Batch size')
 # Model
 parser.add_argument('--n_layers', default=4, type=int, help='Number of layers')
@@ -301,12 +301,13 @@ optimizer, scheduler = setup_optimizer(
 
 # Training
 def train():
-    print(model)
-    print("trainable params:", sum([param.numel() for param in model.parameters() if param.requires_grad]))
+    # print(model)
+    # print("trainable params:", sum([param.numel() for param in model.parameters() if param.requires_grad]))
     model.train()
     train_loss = 0
     correct = 0
     total = 0
+    tqdm._instances.clear()
     pbar = tqdm(enumerate(trainloader))
     for batch_idx, (inputs, targets) in pbar:
         inputs, targets = inputs.to(device), targets.to(device)
@@ -333,6 +334,7 @@ def eval(epoch, dataloader, checkpoint=False):
     eval_loss = 0
     correct = 0
     total = 0
+    tqdm._instances.clear()
     with torch.no_grad():
         pbar = tqdm(enumerate(dataloader))
         for batch_idx, (inputs, targets) in pbar:
@@ -376,5 +378,5 @@ for epoch in pbar:
     val_acc = eval(epoch, valloader, checkpoint=True)
     eval(epoch, testloader)
     scheduler.step()
-    # print(f"Epoch {epoch} learning rate: {scheduler.get_last_lr()}")
+    print(f"Epoch {epoch} learning rate: {scheduler.get_last_lr()}")
 

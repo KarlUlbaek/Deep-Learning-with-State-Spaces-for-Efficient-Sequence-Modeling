@@ -297,7 +297,7 @@ class S6MambaModule(nn.Module):
 
 class MambaBlock(nn.Module):
     def __init__(
-        self, d_model, d_state, mixer_cls, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=False
+        self, d_model, d_state, mixer_cls, dropout = None, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=False
     ):
         """
         Simple block wrapping a mixer class with LayerNorm/RMSNorm and residual connection"
@@ -316,6 +316,7 @@ class MambaBlock(nn.Module):
         self.fused_add_norm = fused_add_norm
         self.mixer = mixer_cls(d_model, d_state)
         self.norm = norm_cls(d_model)
+        self.dropout = nn.Dropout(p=dropout) if dropout is not None else nn.Identity()
         if self.fused_add_norm:
             assert RMSNorm is not None, "RMSNorm import fails"
             assert isinstance(
@@ -348,6 +349,7 @@ class MambaBlock(nn.Module):
                 eps=self.norm.eps,
             )
         hidden_states = self.mixer(hidden_states, inference_params=inference_params)
+        hidden_states = self.dropout(hidden_states)
         return hidden_states, residual
 
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):

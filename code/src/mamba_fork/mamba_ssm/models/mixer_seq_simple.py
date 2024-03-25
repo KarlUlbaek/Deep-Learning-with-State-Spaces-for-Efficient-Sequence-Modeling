@@ -25,6 +25,7 @@ except ImportError:
 def create_block(
     d_model,
     d_state,
+    dropout=None,
     ssm_cfg=None,
     norm_epsilon=1e-5,
     rms_norm=False,
@@ -50,6 +51,7 @@ def create_block(
     block = MambaBlock(
         d_model=d_model,
         d_state=d_state,
+        dropout=dropout,
         mixer_cls=mixer_cls,
         norm_cls=norm_cls,
         fused_add_norm=fused_add_norm,
@@ -98,6 +100,7 @@ class MixerModel(nn.Module):
         d_model: int,
         n_layer: int,
         vocab_size: int,
+        dropout = None,
         d_out = None,
         d_state=16,
         discrete = True,
@@ -106,7 +109,7 @@ class MixerModel(nn.Module):
         rms_norm: bool = False,
         initializer_cfg=None,
         fused_add_norm=False,
-        residual_in_fp32=False,
+        residual_in_fp32=True,
         device=None,
         dtype=None,
         classification = True,
@@ -139,6 +142,7 @@ class MixerModel(nn.Module):
                 create_block(
                     d_model=d_model,
                     d_state=d_state,
+                    dropout=dropout,
                     ssm_cfg=ssm_cfg,
                     norm_epsilon=norm_epsilon,
                     rms_norm=rms_norm,
