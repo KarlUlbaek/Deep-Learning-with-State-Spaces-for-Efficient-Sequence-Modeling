@@ -29,20 +29,20 @@ class Cifar10seq(Dataset):
 
 
 b = 64
-num_workers = 6
-cifar_dataloader_train = DataLoader(dataset=Cifar10seq(train=True, d="cpu"),
+num_workers = 0
+cifar_dataloader_train = DataLoader(dataset=Cifar10seq(train=True),
                                     shuffle=True,
                                     batch_size=b, num_workers=num_workers)
-cifar_dataloader_test = DataLoader(dataset=Cifar10seq(train=False, d="cpu"),
+cifar_dataloader_test = DataLoader(dataset=Cifar10seq(train=False),
                                     shuffle=False,
-                                    batch_size=b*5,
+                                    batch_size=b,
                                     num_workers=num_workers)
 lr = 1e-3
-n_layers = 4
+n_layers = 6
 d_data = 3
-d_model = 128
+d_model = 1028//2
 d_state = 64
-dropout = None# 0.1
+dropout = 0.25
 L = next(iter(cifar_dataloader_train))[0].shape[1]
 d = "cuda"
 classes = 10
@@ -66,7 +66,7 @@ s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_
                 d_out = classes, discrete=False, fused_add_norm=fast, rms_norm=fast,
                 s4={"mode":"diag", "hippo_init":"legs"}, classification=classification).to(d)
 
-model = s6NN
+model = s4dNN
 print(model)
 opt = AdamW(model.parameters(), lr=lr, foreach=True)
 n_epochs = 100
