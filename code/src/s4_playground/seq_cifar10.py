@@ -32,9 +32,9 @@ b = 64
 cifar_dataloader_train = DataLoader(dataset=Cifar10seq(train=True),
                                     shuffle=True,
                                     batch_size=b)
-cifar_dataloader_train = DataLoader(dataset=Cifar10seq(train=True),
-                                    shuffle=True,
-                                    batch_size=b)
+cifar_dataloader_test = DataLoader(dataset=Cifar10seq(train=False),
+                                    shuffle=False,
+                                    batch_size=b*5)
 lr = 1e-3
 n_layers = 4
 d_data = 3
@@ -47,18 +47,18 @@ classification = True
 
 from mamba_fork.mamba_ssm.models.mixer_seq_simple import MixerModel as MambaNN
 s6NN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, 
-               d_out = classes, discrete=False, fused_add_norm=False, classification=classification).to(d)
+               d_out = classes, discrete=False, fused_add_norm=True, classification=classification).to(d)
 
 s4NN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, 
-               d_out = classes, discrete=False, fused_add_norm=False,
+               d_out = classes, discrete=False, fused_add_norm=True,
                s4={"mode":"dplr", "hippo_init":"legs"},classification=classification).to(d)
 
 s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, 
-               d_out = classes, discrete=False, fused_add_norm=False,
+               d_out = classes, discrete=False, fused_add_norm=True,
                s4={"mode":"diag", "hippo_init":"legs"}, classification=classification).to(d)
 
 model = s6NN
-opt = AdamW(model.parameters(), lr=lr, weight_decay=0.)
+opt = AdamW(model.parameters(), lr=lr, foreach=True)
 n_epochs = 100
 
 p_bar = tqdm.tqdm(range(n_epochs))
@@ -73,8 +73,21 @@ for epoch_dix in p_bar:
       loss.backward()
       opt.step()
       opt.zero_grad()
-      acc = torch.mean((torch.argmax(last_pred, dim=-1) == y).to(float))
-      p_bar.set_postfix({'loss': loss.cpu().item(), "acc":acc.cpu().item()})
+
+      #if batch_idx % 20 == 0:
+   with torch.no_grad():
+      model.eval()
+      all_preds = []
+      ys = []
+      for x, y in cifar_dataloader_test:
+         all_preds.append(model(x))
+         ys.append(y)
+
+      all_preds = torch.cat(all_preds)
+      ys = torch.cat(ys)
+      acc = torch.mean((torch.argmax(all_preds, dim=-1) == ys).to(float))
+      p_bar.set_postfix({'test loss': loss.cpu().item(), "test acc":acc.cpu().item()})
+      model.train()
 
 
 
