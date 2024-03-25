@@ -71,6 +71,9 @@ print(model)
 opt = AdamW(model.parameters(), lr=lr, foreach=True)
 n_epochs = 100
 
+for param in model.parameters():
+   if param.requires_grad:
+      print(param.name)
 print("trainable params:", sum([param.numel() for param in model.parameters() if param.requires_grad]))
 p_bar = tqdm.tqdm(enumerate(cifar_dataloader_train), unit="batch", total=len(cifar_dataloader_train))
 for epoch_dix in range(n_epochs):
