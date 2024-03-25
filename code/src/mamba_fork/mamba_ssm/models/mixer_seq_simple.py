@@ -109,11 +109,13 @@ class MixerModel(nn.Module):
         residual_in_fp32=False,
         device=None,
         dtype=None,
+        classification = True,
         s4=None  # {mode:"dplr", hippo_init ="legs"}
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.residual_in_fp32 = residual_in_fp32
+        self.classification = classification
 
         if discrete:
             self.embedding = nn.Embedding(vocab_size, d_model, **factory_kwargs)
@@ -190,6 +192,11 @@ class MixerModel(nn.Module):
                 prenorm=False,
                 residual_in_fp32=self.residual_in_fp32,
             )
+        if self.classification:
+            hidden_states = hidden_states.mean(dim=1)
+            return self.head(hidden_states)
+
+
         hidden_states = self.head(hidden_states)
 
         return hidden_states

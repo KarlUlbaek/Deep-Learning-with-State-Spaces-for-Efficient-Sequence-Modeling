@@ -301,6 +301,8 @@ optimizer, scheduler = setup_optimizer(
 
 # Training
 def train():
+    print(model)
+    print("trainable params:", sum([param.numel() for param in model.parameters() if param.requires_grad]))
     model.train()
     train_loss = 0
     correct = 0
