@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from s4_fork.models.s4.s4 import FFTConvLean
+from src.s4_fork.models.s4.s4 import FFTConvLean
 import math
 from einops import rearrange, repeat
 from causal_conv1d import causal_conv1d_fn

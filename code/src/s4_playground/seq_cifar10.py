@@ -52,8 +52,14 @@ if torch.cuda.get_device_name(0) == "NVIDIA GeForce GTX 1080 Ti":
    fast = False
 else:
    fast = True
+import os
+import sys
+sys.path.append(os.getcwd())
 
-from mamba_fork.mamba_ssm.models.mixer_seq_simple import MixerModel as MambaNN
+#sys.path.append(os.path.join(os.getcwd(), "src/s4_fork"))
+#sys.path.append(os.path.join(os.getcwd(), "src/s4_playground"))
+#print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11",sys.path)
+from mamba_ssm.models.mixer_seq_simple import MixerModel as MambaNN
 s6NN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, dropout=dropout,
                d_out = classes, discrete=False, fused_add_norm=fast, rms_norm=fast,
                classification=classification).to(d)
