@@ -6,7 +6,10 @@ from torch.optim import AdamW
 from torch.nn import CrossEntropyLoss
 from einops import rearrange
 
-ROOT = "../data/cifar10/"
+import os
+import sys
+sys.path.append(os.getcwd())
+ROOT = "../../data/cifar10/"
 
 class Cifar10seq(Dataset):
    def __init__(self, train=True, d="cuda"):
@@ -38,11 +41,11 @@ cifar_dataloader_test = DataLoader(dataset=Cifar10seq(train=False),
                                     batch_size=b,
                                     num_workers=num_workers)
 lr = 1e-3
-n_layers = 6
+n_layers = 4
 d_data = 3
-d_model = 1028//2
+d_model = 128#1028//2
 d_state = 64
-dropout = 0.25
+dropout = 0.1
 L = next(iter(cifar_dataloader_train))[0].shape[1]
 d = "cuda"
 classes = 10
@@ -52,9 +55,6 @@ if torch.cuda.get_device_name(0) == "NVIDIA GeForce GTX 1080 Ti":
    fast = False
 else:
    fast = True
-import os
-import sys
-sys.path.append(os.getcwd())
 
 #sys.path.append(os.path.join(os.getcwd(), "src/s4_fork"))
 #sys.path.append(os.path.join(os.getcwd(), "src/s4_playground"))
@@ -72,17 +72,20 @@ s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_
                 d_out = classes, discrete=False, fused_add_norm=fast, rms_norm=fast,
                 s4={"mode":"diag", "hippo_init":"legs"}, classification=classification).to(d)
 
-model = s4dNN
+model = s4NN
 print(model)
-opt = AdamW(model.parameters(), lr=lr, foreach=True)
+#opt = AdamW(model.parameters(), lr=lr, foreach=True)
 n_epochs = 100
 
-for param in model.parameters():
-   if param.requires_grad:
-      print(param.name)
+from misc import setup_optimizer
+opt, sched = setup_optimizer(model, opt=AdamW, lr=lr,epochs=n_epochs)
+
+
 print("trainable params:", sum([param.numel() for param in model.parameters() if param.requires_grad]))
 p_bar = tqdm.tqdm(enumerate(cifar_dataloader_train), unit="batch", total=len(cifar_dataloader_train))
+inf_dict = {}
 for epoch_dix in range(n_epochs):
+   correct, tot = 0, 0
    for batch_idx, (x, y) in p_bar:
       x, y = x.to(d), y.to(d)
       last_pred = model(x)
@@ -93,6 +96,10 @@ for epoch_dix in range(n_epochs):
       loss.backward()
       opt.step()
       opt.zero_grad()
+      correct += torch.sum((torch.argmax(last_pred, dim=-1) == y).to(float))
+      tot += y.shape[0]
+      inf_dict["train acc"] = (correct / tot).item()
+      p_bar.set_postfix(inf_dict)
 
       #if batch_idx % 20 == 0:
    with torch.no_grad():
@@ -106,29 +113,14 @@ for epoch_dix in range(n_epochs):
 
       all_preds = torch.cat(all_preds)
       ys = torch.cat(ys)
-      acc = torch.mean((torch.argmax(all_preds, dim=-1) == ys).to(float))
+      test_acc = torch.mean((torch.argmax(all_preds, dim=-1) == ys).to(float))
       p_bar = tqdm.tqdm(enumerate(cifar_dataloader_train), unit="batch", total=len(cifar_dataloader_train))
-      p_bar.set_postfix({'test loss': loss.cpu().item(), "test acc":acc.cpu().item()})
+      inf_dict["test acc"] = test_acc.cpu().item()
+      p_bar.set_postfix(inf_dict)
       model.train()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+   sched.step()
+   print(f"Epoch {epoch_dix} learning rate: {sched.get_last_lr()}")
 
 
 

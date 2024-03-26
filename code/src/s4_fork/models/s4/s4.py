@@ -1821,6 +1821,8 @@ class FFTConvLean(nn.Module):
         self.transposed = transposed
 
         self.D = nn.Parameter(torch.randn(channels, self.d_model))
+        self.D._optim = True # will get lower learning rate
+        self.D._no_weight_decay = True # will not get weight decaay
 
         # Inner convolution kernel
         if mode is not None:
