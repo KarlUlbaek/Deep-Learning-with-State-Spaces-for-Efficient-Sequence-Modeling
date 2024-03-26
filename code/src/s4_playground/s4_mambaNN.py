@@ -82,6 +82,53 @@ class s4MambaModule(nn.Module):
 
       return out
 
+from s4_fork.src.models.nn import DropoutNd
+class s4OriginalModule(nn.Module):
+   def __init__(
+      self,
+      d_model,
+      dropout = 0.0,
+      d_state=64,
+      layer_idx=None,
+      transposed=True,
+      mode="diag",
+      lr =None,
+      hippo_init ="legs"
+   ):
+      #factory_kwargs = {"device": device, "dtype": dtype}
+      super().__init__()
+
+      self.d_model = d_model
+      self.d_state = d_state
+      self.layer_idx = layer_idx
+      self.s4fft = FFTConvLean(d_model, d_state=d_state, mode=mode, transposed=transposed, init=hippo_init)
+
+      self.activation = nn.GELU()
+      # dropout_fn = nn.Dropout2d # NOTE: bugged in PyTorch 1.11
+      dropout_fn = DropoutNd
+      self.dropout = dropout_fn(dropout) if dropout > 0.0 else nn.Identity()
+
+      # position-wise output transform to mix features
+      self.output_linear = nn.Sequential(
+         nn.Conv1d(self.d_model, 2 * self.d_model, kernel_size=1),
+         nn.GLU(dim=-2),
+      )
+
+
+   def forward(self, hidden_states, inference_params=None):
+      #batch, seqlen, dim = hidden_states.shape
+      #x = rearrange(hidden_states, "b d l -> b l d")
+      x = self.s4fft(hidden_states)
+
+      x = self.dropout(self.activation(x))
+
+      x = self.output_linear(x)
+
+      #x = rearrange(x, "b l d -> b d l")
+
+
+      return x, None
+
 if __name__ == "__main__":
    d_data = 64
    d_model = d_data

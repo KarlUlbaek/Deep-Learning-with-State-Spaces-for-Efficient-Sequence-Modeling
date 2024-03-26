@@ -15,7 +15,7 @@ from einops.layers.torch import Rearrange, Reduce
 from PIL import Image  # Only used for Pathfinder
 from datasets import DatasetDict, Value, load_dataset
 
-from src.dataloaders.base import default_data_path, SequenceDataset, ImageResolutionSequenceDataset
+from s4_fork.src.dataloaders.base import default_data_path, SequenceDataset, ImageResolutionSequenceDataset
 
 
 class IMDB(SequenceDataset):

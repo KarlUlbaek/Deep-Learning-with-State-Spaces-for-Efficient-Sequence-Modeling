@@ -15,13 +15,10 @@ class Cifar10seq(Dataset):
    def __init__(self, train=True, d="cuda"):
       data = torchvision.datasets.CIFAR10(root=ROOT, train=train, download=True)
       x = torch.from_numpy(data.data).to(torch.float)
-      # x = x.mean(dim=-1)
-      # x = rearrange(x, "b c d -> b (c d) 1")
       x = rearrange(x, "a b c d -> a (b c) d")
       x = x / x.max()
       self.x = x.to(d)
       self.y = torch.tensor(data.targets).to(d).to(torch.long)
-
 
    def __len__(self):
       return self.x.shape[0]
@@ -40,12 +37,12 @@ cifar_dataloader_test = DataLoader(dataset=Cifar10seq(train=False),
                                     shuffle=False,
                                     batch_size=b,
                                     num_workers=num_workers)
-lr = 1e-3
+
 n_layers = 4
 d_data = 3
 d_model = 128#1028//2
 d_state = 64
-dropout = 0.1
+dropout = 0.2
 L = next(iter(cifar_dataloader_train))[0].shape[1]
 d = "cuda"
 classes = 10
@@ -59,7 +56,7 @@ else:
 #sys.path.append(os.path.join(os.getcwd(), "src/s4_fork"))
 #sys.path.append(os.path.join(os.getcwd(), "src/s4_playground"))
 #print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11",sys.path)
-from mamba_ssm.models.mixer_seq_simple import MixerModel as MambaNN
+from mamba_fork.mamba_ssm.models.mixer_seq_simple import MixerModel as MambaNN
 s6NN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, dropout=dropout,
                d_out = classes, discrete=False, fused_add_norm=fast, rms_norm=fast,
                classification=classification).to(d)
@@ -72,13 +69,18 @@ s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_
                 d_out = classes, discrete=False, fused_add_norm=fast, rms_norm=fast,
                 s4={"mode":"diag", "hippo_init":"legs"}, classification=classification).to(d)
 
-model = s4NN
+model = s4dNN
+
+from s4_fork.example import model
 print(model)
+#print(model)
 #opt = AdamW(model.parameters(), lr=lr, foreach=True)
 n_epochs = 100
 
 from misc import setup_optimizer
-opt, sched = setup_optimizer(model, opt=AdamW, lr=lr,epochs=n_epochs)
+lr = 3e-3
+lr_scale = 0.1
+opt, sched = setup_optimizer(model, opt=AdamW, lr=lr, lr_scale=lr_scale, epochs=n_epochs)
 
 
 print("trainable params:", sum([param.numel() for param in model.parameters() if param.requires_grad]))
@@ -89,9 +91,6 @@ for epoch_dix in range(n_epochs):
    for batch_idx, (x, y) in p_bar:
       x, y = x.to(d), y.to(d)
       last_pred = model(x)
-      #print(last_pred.argmax(dim=1))
-      #last_pred = pred[:,-1000,:].mean(dim=1)
-      #print(last_pred.shape)
       loss = torch.nn.functional.cross_entropy(last_pred, y)
       loss.backward()
       opt.step()
@@ -116,7 +115,7 @@ for epoch_dix in range(n_epochs):
       test_acc = torch.mean((torch.argmax(all_preds, dim=-1) == ys).to(float))
       p_bar = tqdm.tqdm(enumerate(cifar_dataloader_train), unit="batch", total=len(cifar_dataloader_train))
       inf_dict["test acc"] = test_acc.cpu().item()
-      p_bar.set_postfix(inf_dict)
+      #p_bar.set_postfix(inf_dict)
       model.train()
 
    sched.step()

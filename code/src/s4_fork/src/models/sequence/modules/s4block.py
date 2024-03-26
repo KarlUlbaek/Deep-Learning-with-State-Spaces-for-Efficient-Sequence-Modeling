@@ -7,11 +7,11 @@ import torch.nn.utils as U
 from functools import partial
 from einops import rearrange, repeat
 
-from src.models.nn import LinearActivation, Activation, DropoutNd
-from src.models.sequence.base import SequenceModule
-from src.models.sequence.kernels.fftconv import FFTConv
-import src.utils as utils
-import src.utils.registry as registry
+from s4_fork.src.models.nn import LinearActivation, Activation, DropoutNd
+from s4_fork.src.models.sequence.base import SequenceModule
+from s4_fork.src.models.sequence.kernels.fftconv import FFTConv
+import s4_fork.src.utils as utils
+import s4_fork.src.utils.registry as registry
 
 import src.utils.train
 log = src.utils.train.get_logger(__name__)

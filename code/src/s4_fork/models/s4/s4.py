@@ -1852,7 +1852,6 @@ class FFTConvLean(nn.Module):
         # Always work with (B D L) dimension in this module
         if not self.transposed: x = x.transpose(-1, -2)
         L = x.size(-1)
-
         # Compute SS Kernel
         l_kernel = L if self.L is None else min(L, round(self.L / rate))
         k, k_state =  self.kernel(L=l_kernel, rate=rate, state=state) # (C H L) (B C H L)

@@ -35,8 +35,8 @@ import argparse
 import sys
 sys.path.append(os.getcwd())
 
-from s4_fork.models.s4.s4 import S4Block as S4  # Can use full version instead of minimal S4D standalone below
-from s4_fork.models.s4.s4d import S4D
+from models.s4.s4 import S4Block as S4  # Can use full version instead of minimal S4D standalone below
+from models.s4.s4d import S4D
 from tqdm.auto import tqdm
 
 # Dropout broke in PyTorch 1.11
@@ -153,13 +153,11 @@ valloader = torch.utils.data.DataLoader(
 testloader = torch.utils.data.DataLoader(
     testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-
 class S4Model(nn.Module):
 
     def __init__(
         self,
         d_input,
-        conv_cls = "simple",
         d_output=10,
         d_model=256,
         n_layers=4,
@@ -177,17 +175,10 @@ class S4Model(nn.Module):
         self.s4_layers = nn.ModuleList()
         self.norms = nn.ModuleList()
         self.dropouts = nn.ModuleList()
-        from s4_playground.s4_mambaNN import s4OriginalModule
         for _ in range(n_layers):
-            if conv_cls == "simple":
-                self.s4_layers.append(
-                    S4D(d_model, dropout=dropout, transposed=True, lr=min(0.001, args.lr))
-                )
-            else:
-                self.s4_layers.append(
-                    s4OriginalModule(d_model, dropout=dropout, transposed=True,
-                                     lr=min(0.001, args.lr), mode="diag")
-                )
+            self.s4_layers.append(
+                S4D(d_model, dropout=dropout, transposed=True, lr=min(0.001, args.lr))
+            )
             self.norms.append(nn.LayerNorm(d_model))
             self.dropouts.append(dropout_fn(dropout))
 
@@ -232,62 +223,10 @@ class S4Model(nn.Module):
 
         return x
 
-def setup_optimizer(model, lr, weight_decay, epochs):
-    """
-    S4 requires a specific optimizer setup.
-
-    The S4 layer (A, B, C, dt) parameters typically
-    require a smaller learning rate (typically 0.001), with no weight decay.
-
-    The rest of the model can be trained with a higher learning rate (e.g. 0.004, 0.01)
-    and weight decay (if desired).
-    """
-
-    # All parameters in the model
-    all_parameters = list(model.parameters())
-
-    # General parameters don't contain the special _optim key
-    params = [p for p in all_parameters if not hasattr(p, "_optim")]
-
-    # Create an optimizer with the general parameters
-    optimizer = optim.AdamW(params, lr=lr, weight_decay=weight_decay)
-
-    try:
-        # Add parameters with special hyperparameters
-        hps = [getattr(p, "_optim") for p in all_parameters if hasattr(p, "_optim")]
-        hps = [
-            dict(s) for s in sorted(list(dict.fromkeys(frozenset(hp.items()) for hp in hps)))
-        ]  # Unique dicts
-        for hp in hps:
-            params = [p for p in all_parameters if getattr(p, "_optim", None) == hp]
-            optimizer.add_param_group(
-                {"params": params, **hp}
-            )
-
-        # Create a lr scheduler
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=patience, factor=0.2)
-
-
-        # Print optimizer info
-        keys = sorted(set([k for hp in hps for k in hp.keys()]))
-        for i, g in enumerate(optimizer.param_groups):
-            group_hps = {k: g.get(k, None) for k in keys}
-            print(' | '.join([
-                f"Optimizer group {i}",
-                f"{len(g['params'])} tensors",
-            ] + [f"{k} {v}" for k, v in group_hps.items()]))
-    except AttributeError as e:
-        print("setup_optimizer failed due to", e)
-
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs)
-    return optimizer, scheduler
-
 # Model
-conv_cls = "NOT SIMPLE"
-print("==> Building",conv_cls,"model..")
+print('==> Building model..')
 model = S4Model(
     d_input=d_input,
-    conv_cls=conv_cls,
     d_output=d_output,
     d_model=args.d_model,
     n_layers=args.n_layers,
@@ -308,13 +247,57 @@ if args.resume:
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
 
+def setup_optimizer(model, lr, weight_decay, epochs):
+    """
+    S4 requires a specific optimizer setup.
+
+    The S4 layer (A, B, C, dt) parameters typically
+    require a smaller learning rate (typically 0.001), with no weight decay.
+
+    The rest of the model can be trained with a higher learning rate (e.g. 0.004, 0.01)
+    and weight decay (if desired).
+    """
+
+    # All parameters in the model
+    all_parameters = list(model.parameters())
+
+    # General parameters don't contain the special _optim key
+    params = [p for p in all_parameters if not hasattr(p, "_optim")]
+
+    # Create an optimizer with the general parameters
+    optimizer = optim.AdamW(params, lr=lr, weight_decay=weight_decay)
+
+    # Add parameters with special hyperparameters
+    hps = [getattr(p, "_optim") for p in all_parameters if hasattr(p, "_optim")]
+    hps = [
+        dict(s) for s in sorted(list(dict.fromkeys(frozenset(hp.items()) for hp in hps)))
+    ]  # Unique dicts
+    for hp in hps:
+        params = [p for p in all_parameters if getattr(p, "_optim", None) == hp]
+        optimizer.add_param_group(
+            {"params": params, **hp}
+        )
+
+    # Create a lr scheduler
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=patience, factor=0.2)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs)
+
+    # Print optimizer info
+    keys = sorted(set([k for hp in hps for k in hp.keys()]))
+    for i, g in enumerate(optimizer.param_groups):
+        group_hps = {k: g.get(k, None) for k in keys}
+        print(' | '.join([
+            f"Optimizer group {i}",
+            f"{len(g['params'])} tensors",
+        ] + [f"{k} {v}" for k, v in group_hps.items()]))
+
+    return optimizer, scheduler
 
 criterion = nn.CrossEntropyLoss()
 optimizer, scheduler = setup_optimizer(
     model, lr=args.lr, weight_decay=args.weight_decay, epochs=args.epochs
 )
-optimizer = optim.AdamW(params=model.parameters(), lr=0.001)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 100)
+
 ###############################################################################
 # Everything after this point is standard PyTorch training!
 ###############################################################################
@@ -388,19 +371,18 @@ def eval(epoch, dataloader, checkpoint=False):
 
         return acc
 
-if __name__ =="__main__":
-    pbar = tqdm(range(start_epoch, args.epochs))
-    print(model)
-    print("trainable params ", sum([param.numel() for param in model.parameters() if param.requires_grad]))
-    print("nontrainable params ", sum([param.numel() for param in model.parameters() if not param.requires_grad]))
-    for epoch in pbar:
-        if epoch == 0:
-            pbar.set_description('Epoch: %d' % (epoch))
-        else:
-            pbar.set_description('Epoch: %d | Val acc: %1.3f' % (epoch, val_acc))
-        train()
-        val_acc = eval(epoch, valloader, checkpoint=True)
-        eval(epoch, testloader)
-        scheduler.step()
-        print(f"Epoch {epoch} learning rate: {scheduler.get_last_lr()}")
+pbar = tqdm(range(start_epoch, args.epochs))
+print(model)
+print("trainable params ", sum([param.numel() for param in model.parameters() if param.requires_grad]))
+print("nontrainable params ", sum([param.numel() for param in model.parameters() if not param.requires_grad]))
+for epoch in pbar:
+    if epoch == 0:
+        pbar.set_description('Epoch: %d' % (epoch))
+    else:
+        pbar.set_description('Epoch: %d | Val acc: %1.3f' % (epoch, val_acc))
+    train()
+    val_acc = eval(epoch, valloader, checkpoint=True)
+    eval(epoch, testloader)
+    scheduler.step()
+    print(f"Epoch {epoch} learning rate: {scheduler.get_last_lr()}")
 
