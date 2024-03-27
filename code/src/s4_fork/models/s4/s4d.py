@@ -8,6 +8,8 @@ from einops import rearrange, repeat
 
 from s4_fork.src.models.nn import DropoutNd
 
+
+#Does not have B??
 class S4DKernel(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
@@ -58,7 +60,7 @@ class S4DKernel(nn.Module):
             if lr is not None: optim["lr"] = lr
             setattr(getattr(self, name), "_optim", optim)
 
-
+#Does not have B?????
 class S4D(nn.Module):
     def __init__(self, d_model, d_state=64, dropout=0.0, transposed=True, **kernel_args):
         super().__init__()
