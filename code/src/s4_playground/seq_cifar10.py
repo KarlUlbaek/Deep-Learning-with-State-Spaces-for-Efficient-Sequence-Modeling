@@ -12,7 +12,7 @@ sys.path.append(os.getcwd())
 ROOT = "../../data/cifar10/"
 
 class Cifar10seq(Dataset):
-   def __init__(self, train=True, d="cuda"):
+   def __init__(self, train=True, d="cpu"):
       data = torchvision.datasets.CIFAR10(root=ROOT, train=train, download=True)
       x = torch.from_numpy(data.data).to(torch.float)
       x = rearrange(x, "a b c d -> a (b c) d")
@@ -29,7 +29,7 @@ class Cifar10seq(Dataset):
 
 
 b = 64
-num_workers = 0
+num_workers = 12
 cifar_dataloader_train = DataLoader(dataset=Cifar10seq(train=True),
                                     shuffle=True,
                                     batch_size=b, num_workers=num_workers)
@@ -41,7 +41,7 @@ cifar_dataloader_test = DataLoader(dataset=Cifar10seq(train=False),
 n_layers = 4
 d_data = 3
 d_model = 128#1028//2
-d_state = 16
+d_state = 64
 dropout = 0.1
 L = next(iter(cifar_dataloader_train))[0].shape[1]
 d = "cuda"
@@ -69,7 +69,7 @@ s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_
                 d_out = classes, discrete=False, fused_add_norm=fast, rms_norm=fast,
                 s4={"mode":"diag", "hippo_init":"legs"}, classification=classification).to(d)
 
-model = s6NN
+model = s4dNN
 
 #from s4_fork.example import model
 print(model)
@@ -119,7 +119,10 @@ for epoch_dix in range(n_epochs):
       model.train()
 
    sched.step()
-   print(f"Epoch {epoch_dix} learning rate: {sched.get_last_lr()}")
+   inf_dict["lr"] = sched.get_last_lr()[0]
+   inf_dict["epoch"] = epoch_dix
+   #
+   # print(f"Epoch {epoch_dix} learning rate: {sched.get_last_lr()[0]}")
 
 
 
