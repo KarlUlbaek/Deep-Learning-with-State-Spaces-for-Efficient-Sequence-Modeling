@@ -41,8 +41,8 @@ cifar_dataloader_test = DataLoader(dataset=Cifar10seq(train=False),
 n_layers = 4
 d_data = 3
 d_model = 128#1028//2
-d_state = 64
-dropout = 0.2
+d_state = 16
+dropout = 0.1
 L = next(iter(cifar_dataloader_train))[0].shape[1]
 d = "cuda"
 classes = 10
@@ -69,9 +69,9 @@ s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_
                 d_out = classes, discrete=False, fused_add_norm=fast, rms_norm=fast,
                 s4={"mode":"diag", "hippo_init":"legs"}, classification=classification).to(d)
 
-model = s4dNN
+model = s6NN
 
-from s4_fork.example import model
+#from s4_fork.example import model
 print(model)
 #print(model)
 #opt = AdamW(model.parameters(), lr=lr, foreach=True)

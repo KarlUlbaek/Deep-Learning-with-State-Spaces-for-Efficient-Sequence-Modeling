@@ -5,6 +5,9 @@ import math
 from einops import rearrange, repeat
 contract = torch.einsum
 from causal_conv1d import causal_conv1d_fn
+import sys
+import os
+sys.path.append(os.getcwd())
 
 from mamba_ssm import selective_scan_fn
 from s4_fork.models.s4.s4 import DropoutNd, SSMKernelDiag, SSMKernelDPLR
@@ -101,6 +104,7 @@ class s4MambaModule(nn.Module):
       self,
       d_model,
       d_state=16,
+      dropout=0.0,
       d_conv=4,
       expand=2,
       conv_bias=True,
@@ -137,6 +141,7 @@ class s4MambaModule(nn.Module):
          **factory_kwargs,
       )
 
+      self.dropout = DropoutNd(p=dropout) if dropout > 0.0 else nn.Identity()
       self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
 
@@ -152,6 +157,7 @@ class s4MambaModule(nn.Module):
       if self.in_proj.bias is not None:
          xz = xz + rearrange(self.in_proj.bias.to(dtype=xz.dtype), "d -> d 1")
 
+      xz = self.dropout(xz)
       x, z = xz.chunk(2, dim=1)
 
       x = causal_conv1d_fn(
@@ -164,6 +170,8 @@ class s4MambaModule(nn.Module):
       x = self.s4fft(x)
 
       x = x * self.act(z)
+
+      x = self.dropout(x)
       x = rearrange(x, "b d l -> b l d")
       out = self.out_proj(x)
 
@@ -219,7 +227,6 @@ class s6ClassicModule(nn.Module):
       dropout=0.0,
       mode=None,
       d_state=16,
-      expand=1,
       dt_rank="auto",
       dt_min=0.001,
       dt_max=0.1,
@@ -302,7 +309,7 @@ class s6ClassicModule(nn.Module):
 
       A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
       x = hidden_states #x = b d l
-      z = torch.ones_like(x)*1.2785 # silu(torch.ones(1,)*1.2785)=1 such that the skip connection doesnt do anything
+      z = x.clone()#torch.ones_like(x)*1.2785 # silu(torch.ones(1,)*1.2785)=1 such that the skip connection doesnt do anything
       x_dbl = self.x_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
       dt, B, C = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1)
       dt = self.dt_proj.weight @ dt.t()

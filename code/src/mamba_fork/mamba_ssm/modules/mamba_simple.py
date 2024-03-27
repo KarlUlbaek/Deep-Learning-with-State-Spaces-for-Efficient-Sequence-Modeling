@@ -11,7 +11,6 @@ from torch import Tensor
 from einops import rearrange, repeat
 
 from mamba_ssm.ops.selective_scan_interface import selective_scan_fn, mamba_inner_fn
-
 try:
     from causal_conv1d import causal_conv1d_fn, causal_conv1d_update
 except ImportError:
@@ -28,12 +27,36 @@ try:
 except ImportError:
     RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
+class DropoutNd(nn.Module):
+    def __init__(self, p: float = 0.5, tie=True, transposed=True):
+        """
+        tie: tie dropout mask across sequence lengths (Dropout1d/2d/3d)
+        """
+        super().__init__()
+        if p < 0 or p >= 1:
+            raise ValueError("dropout probability has to be in [0, 1), " "but got {}".format(p))
+        self.p = p
+        self.tie = tie
+        self.transposed = transposed
+        self.binomial = torch.distributions.binomial.Binomial(probs=1-self.p)
+
+    def forward(self, X):
+        """X: (batch, dim, lengths...)."""
+        if self.training:
+            if not self.transposed: X = rearrange(X, 'b ... d -> b d ...')
+            mask_shape = X.shape[:2] + (1,)*(X.ndim-2) if self.tie else X.shape
+            mask = torch.rand(*mask_shape, device=X.device) < 1.-self.p
+            X = X * mask * (1.0/(1-self.p))
+            if not self.transposed: X = rearrange(X, 'b d ... -> b ... d')
+            return X
+        return X
 
 class S6MambaModule(nn.Module):
     def __init__(
         self,
         d_model,
         d_state,
+        dropout=0.0,
         d_conv=4,
         expand=2,
         dt_rank="auto",
@@ -61,7 +84,6 @@ class S6MambaModule(nn.Module):
         self.layer_idx = layer_idx
 
         self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
-
         self.conv1d = nn.Conv1d(
             in_channels=self.d_inner,
             out_channels=self.d_inner,
@@ -117,6 +139,7 @@ class S6MambaModule(nn.Module):
         self.D._optim = True
         self.D._no_weight_decay = True
 
+        self.dropout = DropoutNd(p=dropout) if dropout is not None else nn.Identity()
         self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
     def forward(self, hidden_states, inference_params=None):
@@ -142,6 +165,8 @@ class S6MambaModule(nn.Module):
         )
         if self.in_proj.bias is not None:
             xz = xz + rearrange(self.in_proj.bias.to(dtype=xz.dtype), "d -> d 1")
+        xz = self.dropout(xz)
+
 
         A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
         # In the backward pass we write dx and dz next to each other to avoid torch.cat
@@ -204,6 +229,8 @@ class S6MambaModule(nn.Module):
             if ssm_state is not None:
                 y, last_state = y
                 ssm_state.copy_(last_state)
+
+            y = self.dropout(y)
             y = rearrange(y, "b d l -> b l d")
             out = self.out_proj(y)
         return out
@@ -351,7 +378,7 @@ class MambaBlock(nn.Module):
                 eps=self.norm.eps,
             )
         hidden_states = self.mixer(hidden_states, inference_params=inference_params)
-        hidden_states = self.dropout(hidden_states)
+        #hidden_states = self.dropout(hidden_states)
         return hidden_states, residual
 
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
