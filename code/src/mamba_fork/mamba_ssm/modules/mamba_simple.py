@@ -25,6 +25,7 @@ except ImportError:
 try:
     from mamba_ssm.ops.triton.layernorm import RMSNorm, layer_norm_fn, rms_norm_fn
 except ImportError:
+    print("triton import error")
     RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
 class DropoutNd(nn.Module):
@@ -71,6 +72,7 @@ class S6MambaModule(nn.Module):
         layer_idx=None,
         device=None,
         dtype=None,
+        mode=None
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()

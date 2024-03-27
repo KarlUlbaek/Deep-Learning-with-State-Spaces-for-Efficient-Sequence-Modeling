@@ -102,11 +102,11 @@ class Cifar10Dataset(Dataset):
 def make_tensor_dataset(Dataset):
     name = Dataset.__name__
     os.makedirs("../../data/{}_tensors".format(name) ,exist_ok=True)
-    print("makeing imdb tensor")
+    print("makeing {} tensor data".format(name))
 
     for split in ["train", "eval"]:
         all_x, all_y = [], []
-        data = Dataset(config=Config()[0], split=split)
+        data = Dataset(split=split)
         for x, y in tqdm(DataLoader(dataset=data, batch_size=60, num_workers=6, shuffle=False)):
             all_x.append(x)
             all_y.append(y)
@@ -136,8 +136,6 @@ class LRATensor(Dataset):
             print("making tensor dataset!")
             make_tensor_dataset(Dataset)
 
-
-
         self.x = torch.load("../../data/{}/x_{}.pt".format(name, split)).to(torch.int)
         self.y = torch.load("../../data/{}/y_{}.pt".format(name, split)).to(torch.int)
 
@@ -152,16 +150,17 @@ if __name__ == "__main__":
     from tqdm import tqdm
     from lra_config import (get_listops_config, get_cifar10_config, get_text_classification_config)
 
-    data = LRATensor(ImdbDataset)
-    for x, y in tqdm(DataLoader(data, batch_size=64, num_workers=6)):
-        pass
+    for d in [ImdbDataset, Cifar10Dataset, ListOpsDataset]:
+        data = LRATensor(d)
+        for x, y in tqdm(DataLoader(data, batch_size=64, num_workers=6)):
+            pass
 
 
     workers = 6
-    data = ImdbDataset(config=get_text_classification_config()[0], split="eval")
+    data = ImdbDataset(split="eval")
     x,y = next(iter(DataLoader(dataset=data, batch_size=10, num_workers=workers, shuffle=True)))
 
-    make_tensor_dataset(ImdbDataset, get_text_classification_config)
+    make_tensor_dataset(ImdbDataset)
 
 
     #all_x, all_y = [], []

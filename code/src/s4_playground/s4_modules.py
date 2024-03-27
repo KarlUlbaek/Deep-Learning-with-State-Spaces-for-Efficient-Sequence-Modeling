@@ -9,6 +9,9 @@ import sys
 import os
 sys.path.append(os.getcwd())
 
+from mamba_ssm.ops.triton.layernorm import RMSNorm
+from mamba_fork.mamba_ssm.modules.mamba_simple import S6MambaModule
+
 from mamba_ssm import selective_scan_fn
 from s4_fork.models.s4.s4 import DropoutNd, SSMKernelDiag, SSMKernelDPLR
 kernel_registry = {
@@ -180,8 +183,8 @@ class s4ClassicModule(nn.Module):
    def __init__(
       self,
       d_model,
-      dropout=0.0,
       d_state=64,
+      dropout=0.0,
       layer_idx=None,
       mode="diag",
       hippo_init ="legs"
@@ -217,7 +220,7 @@ class s4ClassicModule(nn.Module):
       #x = rearrange(x, "b l d -> b d l")
 
 
-      return x, None
+      return x
 
 
 class s6ClassicModule(nn.Module):
@@ -334,33 +337,37 @@ class s6ClassicModule(nn.Module):
 
       y = self.output_linear(y)
 
-      return y, None
+      return y
 
 
 class S4Model(nn.Module):
    def __init__(
       self,
       d_input,
+      d_state=64,
       s4_or_s6 = s4ClassicModule,
       d_output=10,
       d_model=128,
       n_layers=4,
       dropout=0.2,
       prenorm=False,
+      layernorm=True,
       mode = "diag",
    ):
       super().__init__()
 
       self.prenorm = prenorm
       self.encoder = nn.Linear(d_input, d_model)
+      self.NotMambaShape = True if s4_or_s6.__name__ != "S6MambaModule" else False
 
       # Stack S4 layers as residual blocks
       self.s4_layers = nn.ModuleList()
       self.norms = nn.ModuleList()
       self.dropouts = nn.ModuleList()
+      norm_fn = nn.LayerNorm if layernorm else RMSNorm
       for _ in range(n_layers):
-         self.s4_layers.append(s4_or_s6(d_model, dropout=dropout, mode=mode))
-         self.norms.append(nn.LayerNorm(d_model))
+         self.s4_layers.append(s4_or_s6(d_model, d_state=d_state, dropout=dropout, mode=mode))
+         self.norms.append(norm_fn(d_model))
          self.dropouts.append(nn.Dropout1d(dropout))
 
       # Linear decoder
@@ -372,25 +379,25 @@ class S4Model(nn.Module):
       """
       x = self.encoder(x)  # (B, L, d_input) -> (B, L, d_model)
 
-      x = x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
+      if self.NotMambaShape: x = x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
       for layer, norm, dropout in zip(self.s4_layers, self.norms, self.dropouts):
          # Each iteration of this loop will map (B, d_model, L) -> (B, d_model, L)
 
          z = x
          if self.prenorm:
-            # Prenorm
-            z = norm(z.transpose(-1, -2)).transpose(-1, -2)
+            if self.NotMambaShape: norm(z.transpose(-1, -2)).transpose(-1, -2)
+            else:                  norm(z)
 
          # Apply S4 block: we ignore the state input and output
-         z, _ = layer(z)
+         z = layer(z)
          z = dropout(z)
          x = z + x
 
          if not self.prenorm:
-            # Postnorm
-            x = norm(x.transpose(-1, -2)).transpose(-1, -2)
+            if self.NotMambaShape: norm(z.transpose(-1, -2)).transpose(-1, -2)
+            else:                  norm(z)
 
-      x = x.transpose(-1, -2)
+      self.NotMambaShape: x = x.transpose(-1, -2)
 
       # Pooling: average pooling over the sequence length
       x = x.mean(dim=1)
@@ -401,19 +408,23 @@ class S4Model(nn.Module):
 if __name__ == "__main__":
    d_input = 64
    d_model = 128
-   d_state = 32
+   d_state = 64
    L = 512
    B = 16
    d = "cuda"
 
+   m = S6MambaModule(64, 64)
+
+
 
    s4model = S4Model(
                      d_input = d_input,
-                     s4_or_s6=s6ClassicModule,
+                     d_state = d_state,
+                     s4_or_s6=S6MambaModule,
                      d_output=d_input,
                      d_model=d_model,
                      n_layers=4,
-                     dropout=0.2,
+                     dropout=0.1,
                      prenorm=False,
                      mode="diag",
                   ).to(d)
