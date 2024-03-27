@@ -15,7 +15,7 @@ from mamba_ssm.modules.mamba_simple import S6MambaModule, MambaBlock
 from mamba_ssm.utils.generation import GenerationMixin
 from mamba_ssm.utils.hf import load_config_hf, load_state_dict_hf
 import os
-from s4_playground.s4_mambaNN import s4MambaModule
+from s4_playground.s4_modules import s4MambaModule
 
 try:
     from mamba_ssm.ops.triton.layernorm import RMSNorm, layer_norm_fn, rms_norm_fn

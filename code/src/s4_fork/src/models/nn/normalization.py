@@ -154,7 +154,7 @@ class ReversibleInstanceNorm1dOutput(nn.Module):
 
     def __init__(self, norm_input):
         super().__init__()
-        self.transposed = norm_input.transposed
+        self.transposed = norm_input.BDL_shape
         self.weight = norm_input.norm.weight
         self.bias = norm_input.norm.bias
         self.norm_input = norm_input

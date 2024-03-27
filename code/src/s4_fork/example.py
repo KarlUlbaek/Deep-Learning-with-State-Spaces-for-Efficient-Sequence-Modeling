@@ -42,11 +42,9 @@ from tqdm.auto import tqdm
 # Dropout broke in PyTorch 1.11
 if tuple(map(int, torch.__version__.split('.')[:2])) == (1, 11):
     print("WARNING: Dropout is bugged in PyTorch 1.11. Results may be worse.")
-    dropout_fn = nn.Dropout
 if tuple(map(int, torch.__version__.split('.')[:2])) >= (1, 12):
     dropout_fn = nn.Dropout1d
-else:
-    dropout_fn = nn.Dropout2d
+    print("using 1d dropout??")
 
 
 
@@ -177,19 +175,12 @@ class S4Model(nn.Module):
         self.s4_layers = nn.ModuleList()
         self.norms = nn.ModuleList()
         self.dropouts = nn.ModuleList()
-        from s4_playground.s4_mambaNN import s4OriginalModule
         for _ in range(n_layers):
-            if conv_cls == "simple":
-                self.s4_layers.append(
-                    S4D(d_model, dropout=dropout, transposed=True, lr=min(0.001, args.lr))
-                )
-            else:
-                self.s4_layers.append(
-                    s4OriginalModule(d_model, dropout=dropout, transposed=True,
-                                     lr=min(0.001, args.lr), mode="diag")
-                )
+            self.s4_layers.append(
+                S4D(d_model, dropout=dropout, transposed=True, lr=min(0.001, args.lr))
+            )
             self.norms.append(nn.LayerNorm(d_model))
-            self.dropouts.append(dropout_fn(dropout))
+            self.dropouts.append(nn.Dropout1d(dropout))
 
         # Linear decoder
         self.decoder = nn.Linear(d_model, d_output)
@@ -308,13 +299,26 @@ if args.resume:
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
 
+from s4_playground.s4_modules import S4Model as S4Model_, s6ClassicModule, s4ClassicModule
+from s4_playground.misc import setup_optimizer
+
+model = S4Model_(
+    d_input=d_input,
+    s4_or_s6=s6ClassicModule,
+    d_output=d_output,
+    d_model=args.d_model,
+    n_layers=args.n_layers,
+    dropout=args.dropout,
+    prenorm=args.prenorm,
+).to(device)
+
 
 criterion = nn.CrossEntropyLoss()
 optimizer, scheduler = setup_optimizer(
-    model, lr=args.lr, weight_decay=args.weight_decay, epochs=args.epochs
+    model, lr=args.lr ,weight_decay=args.weight_decay, epochs=args.epochs
 )
-optimizer = optim.AdamW(params=model.parameters(), lr=0.001)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 100)
+# optimizer = optim.AdamW(params=model.parameters(), lr=0.001)
+# scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 100)
 ###############################################################################
 # Everything after this point is standard PyTorch training!
 ###############################################################################
