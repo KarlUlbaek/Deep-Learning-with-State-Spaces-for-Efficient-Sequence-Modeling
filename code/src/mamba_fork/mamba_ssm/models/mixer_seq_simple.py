@@ -26,7 +26,7 @@ except ImportError:
 def create_block(
     d_model,
     d_state,
-    dropout=None,
+    dropout=0.0,
     ssm_cfg=None,
     norm_epsilon=1e-5,
     rms_norm=False,
@@ -42,9 +42,9 @@ def create_block(
 
     factory_kwargs = {"device": device, "dtype": dtype}
     if not s4:
-        mixer_cls = partial(S6MambaModule, layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
+        mixer_cls = partial(S6MambaModule, dropout=dropout,layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
     else:
-        mixer_cls = partial(s4MambaModule, layer_idx=layer_idx, **s4, **ssm_cfg, **factory_kwargs)
+        mixer_cls = partial(s4MambaModule, dropout=dropout,layer_idx=layer_idx, **s4, **ssm_cfg, **factory_kwargs)
 
     norm_cls = partial(
         nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon, **factory_kwargs
@@ -101,7 +101,7 @@ class MixerModel(nn.Module):
         d_model: int,
         n_layer: int,
         vocab_size: int,
-        dropout = None,
+        dropout=0.0,
         d_out = None,
         d_state=16,
         discrete = True,
