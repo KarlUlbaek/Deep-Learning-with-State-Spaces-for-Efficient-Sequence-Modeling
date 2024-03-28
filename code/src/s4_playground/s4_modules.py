@@ -331,13 +331,15 @@ class s6ClassicModule(nn.Module):
 class S4Model(nn.Module):
    def __init__(
       self,
-      d_input,
-      d_state=64,
-      s4_or_s6 = s4ClassicModule,
-      d_output=10,
+      d_input: int,
+      d_output: int,
+      classification=True,
+      discrete_input=False,
       d_model=128,
-      n_layers=4,
-      dropout=0.1,
+      d_state=64,
+      n_layer=4,
+      dropout=0.0,
+      s4_or_s6 = s4ClassicModule,
       prenorm=False,
       layernorm=True,
       mode = "diag",
@@ -345,7 +347,12 @@ class S4Model(nn.Module):
       super().__init__()
 
       self.prenorm = prenorm
-      self.encoder = nn.Linear(d_input, d_model)
+      if discrete_input:
+         self.encoder = nn.Embedding(d_input, d_model)
+      else:
+         self.encoder = nn.Linear(d_input, d_model)
+
+      self.classification = classification
       self.NotMambaShape = True if s4_or_s6.__name__ != "S6MambaModule" else False
 
       # Stack S4 layers as residual blocks
@@ -353,7 +360,7 @@ class S4Model(nn.Module):
       self.norms = nn.ModuleList()
       self.dropouts = nn.ModuleList()
       norm_fn = nn.LayerNorm if layernorm else RMSNorm
-      for _ in range(n_layers):
+      for _ in range(n_layer):
          self.s4_layers.append(s4_or_s6(d_model, d_state=d_state, dropout=dropout, mode=mode))
          self.norms.append(norm_fn(d_model))
          self.dropouts.append(nn.Dropout1d(dropout))
@@ -389,10 +396,12 @@ class S4Model(nn.Module):
       if self.NotMambaShape: x = x.transpose(-1, -2)
 
       # Pooling: average pooling over the sequence length
-      x = self.decoder(x)  # (B, d_model) -> (B, d_output)
-      x = x.mean(dim=1)
+      if self.classification:
+         x = x.mean(dim=1)
+         return self.decoder(x)
 
-      return x
+      hidden_states = self.decoder(x)
+      return hidden_states
 
 if __name__ == "__main__":
    d_input = 64
@@ -412,7 +421,7 @@ if __name__ == "__main__":
                      s4_or_s6=S6MambaModule,
                      d_output=d_input,
                      d_model=d_model,
-                     n_layers=4,
+                     n_layer=4,
                      dropout=0.1,
                      prenorm=False,
                      mode="diag",

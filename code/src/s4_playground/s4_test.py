@@ -57,13 +57,13 @@ from s4_fork.models.s4.s4 import S4Block, FFTConvLean, FFTConv
 batch = torch.randn(B, L, d_data).to(d)
 fused_add_norm = False
 
-from mamba_fork.mamba_ssm.models.mixer_seq_simple import MixerModel as MambaNN
-s6NN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, discrete=False, fused_add_norm=fused_add_norm).to(d)
+from mamba_fork.mamba_ssm.models.mixer_seq_simple import MambaModel as MambaNN
+s6NN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, discrete_input=False, fused_add_norm=fused_add_norm).to(d)
 
-s4NN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, discrete=False, fused_add_norm=fused_add_norm,
+s4NN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, discrete_input=False, fused_add_norm=fused_add_norm,
                s4={"mode":"dplr", "hippo_init":"legs"}).to(d)
-s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, discrete=False, fused_add_norm=fused_add_norm,
-               s4={"mode":"diag", "hippo_init":"legs"}).to(d)
+s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, discrete_input=False, fused_add_norm=fused_add_norm,
+                s4={"mode":"diag", "hippo_init":"legs"}).to(d)
 
 #s4conv = FFTConvLean(d_model=d_model, d_state=32, mode="dplr", transposed=False, init="legs").to(d)
 

@@ -95,16 +95,17 @@ def _init_weights(
                     p /= math.sqrt(n_residuals_per_layer * n_layer)
 
 
-class MixerModel(nn.Module):
+class MambaModel(nn.Module):
     def __init__(
         self,
-        d_model: int,
-        n_layer: int,
-        vocab_size: int,
-        dropout=0.0,
-        d_out = None,
-        d_state=16,
-        discrete = True,
+        d_input: int,
+        d_output: int,
+        classification=True,
+        discrete_input=False,
+        d_model= 128,
+        d_state= 16,
+        n_layer= 4,
+        dropout= 0.0,
         ssm_cfg=None,
         norm_epsilon: float = 1e-5,
         rms_norm: bool = False,
@@ -113,7 +114,6 @@ class MixerModel(nn.Module):
         residual_in_fp32=True,
         device=None,
         dtype=None,
-        classification = True,
         s4=None  # {mode:"dplr", hippo_init ="legs"}
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
@@ -121,12 +121,12 @@ class MixerModel(nn.Module):
         self.residual_in_fp32 = residual_in_fp32
         self.classification = classification
 
-        if discrete:
-            self.embedding = nn.Embedding(vocab_size, d_model, **factory_kwargs)
-            self.head = nn.Linear(d_model, vocab_size, **factory_kwargs)
+        if discrete_input:
+            self.embedding = nn.Embedding(d_input, d_model, **factory_kwargs)
         else:
-            self.embedding = nn.Linear(vocab_size, d_model)
-            self.head = nn.Linear(d_model, d_out if d_out is not None else vocab_size)
+            self.embedding = nn.Linear(d_input, d_model)
+
+        self.decoder = nn.Linear(d_model, d_output)
 
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:
@@ -199,10 +199,9 @@ class MixerModel(nn.Module):
             )
         if self.classification:
             hidden_states = hidden_states.mean(dim=1)
-            return self.head(hidden_states)
+            return self.decoder(hidden_states)
 
-
-        hidden_states = self.head(hidden_states)
+        hidden_states = self.decoder(hidden_states)
 
         return hidden_states
 
@@ -230,10 +229,10 @@ class MambaLMHeadModel(nn.Module, GenerationMixin):
         super().__init__()
         if vocab_size % pad_vocab_size_multiple != 0:
             vocab_size += pad_vocab_size_multiple - (vocab_size % pad_vocab_size_multiple)
-        self.backbone = MixerModel(
+        self.backbone = MambaModel(
             d_model=d_model,
             n_layer=n_layer,
-            vocab_size=vocab_size,
+            d_input=vocab_size,
             ssm_cfg=ssm_cfg,
             rms_norm=rms_norm,
             initializer_cfg=initializer_cfg,

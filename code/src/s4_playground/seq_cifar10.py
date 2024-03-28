@@ -56,17 +56,17 @@ else:
 #sys.path.append(os.path.join(os.getcwd(), "src/s4_fork"))
 #sys.path.append(os.path.join(os.getcwd(), "src/s4_playground"))
 #print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11",sys.path)
-from mamba_fork.mamba_ssm.models.mixer_seq_simple import MixerModel as MambaNN
-s6NN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, dropout=dropout,
-               d_out = classes, discrete=False, fused_add_norm=fast, rms_norm=fast,
+from mamba_fork.mamba_ssm.models.mixer_seq_simple import MambaModel as MambaNN
+s6NN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, dropout=dropout,
+               d_output= classes, discrete_input=False, fused_add_norm=fast, rms_norm=fast,
                classification=classification).to(d)
 
-s4NN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, dropout=dropout,
-               d_out = classes, discrete=False, fused_add_norm=fast, rms_norm=fast,
+s4NN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, dropout=dropout,
+               d_output= classes, discrete_input=False, fused_add_norm=fast, rms_norm=fast,
                s4={"mode":"dplr", "hippo_init":"legs"}, classification=classification).to(d)
 
-s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, vocab_size=d_data, d_state=d_state, dropout=dropout,
-                d_out = classes, discrete=False, fused_add_norm=fast, rms_norm=fast,
+s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, dropout=dropout,
+                d_output= classes, discrete_input=False, fused_add_norm=fast, rms_norm=fast,
                 s4={"mode":"diag", "hippo_init":"legs"}, classification=classification).to(d)
 
 model = s4dNN
