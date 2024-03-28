@@ -42,9 +42,6 @@ class FFTConvLean(nn.Module):
       l_max=None,
       channels=1,
       transposed=True,
-      dropout=0.0,
-      tie_dropout=False,
-      #drop_kernel=0.0,
       mode='dplr',
       #kernel=None,
       **kernel_args,  # Arguments passed into inner convolution kernel
@@ -55,7 +52,7 @@ class FFTConvLean(nn.Module):
       self.channels = channels
       self.BDL_shape = transposed
 
-      self.D = nn.Parameter(torch.randn(channels, self.d_model))
+      self.D = nn.Parameter(torch.ones(channels, self.d_model, dtype=torch.float))
       self.D._optim = True  # will get lower learning rate
       self.D._no_weight_decay = True  # will not get weight decaay
 
@@ -68,7 +65,7 @@ class FFTConvLean(nn.Module):
       )
 
       #dropout_fn = DropoutNd if tie_dropout else nn.Dropout
-      self.drop = nn.Dropout1d(dropout) if dropout > 0.0 else nn.Identity()
+      #self.drop = nn.Dropout1d(dropout) if dropout > 0.0 else nn.Identity()
       #self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0.0 else nn.Identity()
 
    def forward(self, x, state=None, rate=1.0, **kwargs):  # absorbs return_output and transformer src mask
@@ -95,7 +92,7 @@ class FFTConvLean(nn.Module):
 
       y = rearrange(y, 'b c h l -> b (c h) l')
 
-      y = self.drop(y)  # DropoutNd better with transposed=True
+      #y = self.drop(y)  # DropoutNd better with transposed=True
 
       if not self.BDL_shape: y = y.transpose(-1, -2)
 
@@ -175,6 +172,7 @@ class s4MambaModule(nn.Module):
       x = x * self.act(z)
 
       x = self.dropout(x)
+
       x = rearrange(x, "b d l -> b l d")
       out = self.out_proj(x)
 
@@ -213,7 +211,9 @@ class s4ClassicModule(nn.Module):
       #x = rearrange(hidden_states, "b d l -> b l d")
       x = self.s4fft(hidden_states)
 
-      x = self.dropout(self.activation(x))
+      x = self.dropout(self)
+
+      x = self.activation(x)
 
       x = self.output_linear(x)
 
@@ -349,7 +349,7 @@ class S4Model(nn.Module):
       d_output=10,
       d_model=128,
       n_layers=4,
-      dropout=0.2,
+      dropout=0.1,
       prenorm=False,
       layernorm=True,
       mode = "diag",

@@ -299,25 +299,25 @@ if args.resume:
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
 
-from s4_playground.s4_modules import S4Model as S4Model_, s6ClassicModule, s4ClassicModule, S6MambaModule
-from s4_playground.misc import setup_optimizer
-
-model = S4Model_(
-    d_input=d_input,
-    d_state=64,
-    s4_or_s6=S6MambaModule,
-    d_output=d_output,
-    d_model=128,
-    n_layers=args.n_layers,
-    dropout=0.1,
-    layernorm=False,
-    prenorm=args.prenorm,
-).to(device)
+# from s4_playground.s4_modules import S4Model as S4Model_, s6ClassicModule, s4ClassicModule, S6MambaModule
+# from s4_playground.misc import setup_optimizer
+#
+# model = S4Model_(
+#     d_input=d_input,
+#     d_state=64,
+#     s4_or_s6=s4ClassicModule,
+#     d_output=d_output,
+#     d_model=128,
+#     n_layers=args.n_layers,
+#     dropout=0.1,
+#     layernorm=False,
+#     prenorm=args.prenorm,
+# ).to(device)
 
 
 criterion = nn.CrossEntropyLoss()
 optimizer, scheduler = setup_optimizer(
-    model, lr=args.lr, lr_scale=0.1, weight_decay=args.weight_decay, epochs=args.epochs
+    model, lr=args.lr, weight_decay=args.weight_decay, epochs=args.epochs
 )
 # optimizer = optim.AdamW(params=model.parameters(), lr=0.001)
 # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 100)

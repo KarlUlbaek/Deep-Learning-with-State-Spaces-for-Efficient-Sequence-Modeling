@@ -1714,8 +1714,7 @@ class FFTConv(nn.Module):
         # Convolution
         if self.bidirectional:
             k0, k1 = rearrange(k, '(s c) h l -> s c h l', s=2)
-            k = F.pad(k0, (0, L)) \
-                    + F.pad(k1.flip(-1), (L, 0))
+            k = F.pad(k0, (0, L))  + F.pad(k1.flip(-1), (L, 0))
             # The above has an off-by-one in the reverse direction
             # This is a deliberate choice since the off-by-one should not affect any applications
             # This can be amended which may be very slightly slower
