@@ -52,7 +52,7 @@ class FFTConvLean(nn.Module):
       self.channels = channels
       self.BDL_shape = transposed
 
-      self.D = nn.Parameter(torch.ones(channels, self.d_model, dtype=torch.float))
+      self.D = nn.Parameter(torch.ones((channels, self.d_model, 1), dtype=torch.float))
       self.D._optim = True  # will get lower learning rate
       self.D._no_weight_decay = True  # will not get weight decaay
 
@@ -68,33 +68,22 @@ class FFTConvLean(nn.Module):
       #self.drop = nn.Dropout1d(dropout) if dropout > 0.0 else nn.Identity()
       #self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0.0 else nn.Identity()
 
-   def forward(self, x, state=None, rate=1.0, **kwargs):  # absorbs return_output and transformer src mask
+   def forward(self, x):  # absorbs return_output and transformer src mask
       """
       x: (B D L) if self.transposed else (B L D)
       """
       # Always work with (B D L) dimension in this module
-      if not self.BDL_shape: x = x.transpose(-1, -2)
       L = x.size(-1)
-      # Compute SS Kernel
-      l_kernel = L# if self.L is None else min(L, round(self.L / rate))
-      k, k_state = self.kernel(L=l_kernel, rate=rate, state=state)  # (C H L) (B C H L)
-      #k = self.drop_kernel(k)
 
-      # In principle, we could pad to l_kernel+L-1 instead of l_kernel+L, but we choose the latter for
-      # equational simplicity. Additionally, we have not experimented to compare the efficiency of the two.
-      k_f = torch.fft.rfft(k, n=l_kernel + L)  # (C H L)
-      x_f = torch.fft.rfft(x, n=l_kernel + L)  # (B H L)
-      y_f = contract('bhl,chl->bchl', x_f, k_f)
-      y = torch.fft.irfft(y_f, n=l_kernel + L)[..., :L]  # (B C H L)
+      k, _ = self.kernel(L=L)  # (H L)
+
+      # Convolution
+      k_f = torch.fft.rfft(k, n=2 * L)  # (H L)
+      u_f = torch.fft.rfft(x, n=2 * L)  # (B H L)
+      y = torch.fft.irfft(u_f * k_f, n=2 * L)[..., :L]  # (B H L)
 
       # Compute D term in state space equation - essentially a skip connection
-      y = y + contract('bhl,ch->bchl', x, self.D)
-
-      y = rearrange(y, 'b c h l -> b (c h) l')
-
-      #y = self.drop(y)  # DropoutNd better with transposed=True
-
-      if not self.BDL_shape: y = y.transpose(-1, -2)
+      y = y + x * self.D
 
       return y
 
@@ -172,7 +161,6 @@ class s4MambaModule(nn.Module):
       x = x * self.act(z)
 
       x = self.dropout(x)
-
       x = rearrange(x, "b d l -> b l d")
       out = self.out_proj(x)
 
@@ -211,7 +199,7 @@ class s4ClassicModule(nn.Module):
       #x = rearrange(hidden_states, "b d l -> b l d")
       x = self.s4fft(hidden_states)
 
-      x = self.dropout(self)
+      x = self.dropout(x)
 
       x = self.activation(x)
 

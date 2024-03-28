@@ -224,7 +224,7 @@ def LinearActivation(
     return linear
 
 class DropoutNd(nn.Module):
-    def __init__(self, p: float = 0.5, tie=True, transposed=True):
+    def __init__(self, p: float = 0.5, tie=False, transposed=True):
         """
         tie: tie dropout mask across sequence lengths (Dropout1d/2d/3d)
         """
