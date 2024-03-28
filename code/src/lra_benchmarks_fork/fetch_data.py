@@ -20,7 +20,7 @@ def extract_tar(archive, subdir=None, mode="r:gz"):
         if subdir is None:
             tar.extractall()
         else:
-            members = [tarinfo for tarinfo in tar.getmembers() if tarinfo.name.startswith(subdir)]
+            members = [tarinfo for tarinfo in tar.getmembers() if tarinfo.d_name.startswith(subdir)]
             tar.extractall(members=members)
 
 

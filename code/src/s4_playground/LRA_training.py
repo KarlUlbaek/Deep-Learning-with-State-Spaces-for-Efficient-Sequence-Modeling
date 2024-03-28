@@ -6,7 +6,7 @@ from torch.optim import AdamW
 from einops import rearrange
 from torch.nn import CrossEntropyLoss
 
-def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, scheduler, n_epochs):
+def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_object):
    info_dict = {}
    for epoch_idx in range(n_epochs):
       p_bar = tqdm.tqdm(enumerate(train_loader),
@@ -37,7 +37,9 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
       info_dict = eval(model, eval_loader, info_dict, test_mode)
       info_dict["lr"] = scheduler.get_last_lr()[0]
       scheduler.step()
-      if test_mode and epoch_idx == 1:break
+
+      if not test_mode and wandb_object is not None: wandb_object.log(info_dict)
+      if test_mode and epoch_idx == 1: break
       #p_bar = tqdm.tqdm(enumerate(cifar_dataloader_train), unit="batch", total=len(cifar_dataloader_train))
 
       #if batch_idx % 20 == 0:
@@ -69,6 +71,7 @@ def eval(model, eval_loader, info_dict, test_mode):
 if __name__ == "__main__":
    import os
    import sys
+   import wandb
    sys.path.append(os.getcwd())
 
    # todo
@@ -159,13 +162,14 @@ if __name__ == "__main__":
             f"n_layers: {n_layer}, d_model: {d_model}, d_state: {d_state}")
       if nontrainable_params != 0: print("nontrainable params!!!!!!!!!1", nontrainable_params)
       #print("####################################################################################")
+      return name, trainable_params
 
    # assumes tokesn atm
    def model_throughput(model, vocab_size, b=64, L=1000, reps=5):
       import time
       batch = (torch.rand((b, L))*(vocab_size-1)).to(torch.long).abs()
       batch = batch.to("cuda")
-      for _ in range(2):
+      for _ in range(3):
          model(batch)
       torch.cuda.synchronize()
 
@@ -207,29 +211,42 @@ if __name__ == "__main__":
    lr = 3e-3
    lr_scale = 0.1
    criterion = CrossEntropyLoss()
-   test_mode = True
    test_throughput = True
-   for name in datasetnames:
-      print(f"\n Running on {name}")
-      train_data = LRATensor(name=name, split="train")
-      eval_data  = LRATensor(name=name, split="eval")
-      train_loader = DataLoader(train_data, batch_size=b, shuffle=True, num_workers=num_workers)
-      eval_loader = DataLoader(eval_data, batch_size=b, shuffle=False, num_workers=num_workers)
-      x, y = next(iter(train_loader))
-      L = x.shape[1]
-      vocab_size = x.max() + 1
-      d_input = 1
-      d_output = y.max() + 1
 
-      for Model in Models:
-         model = Model(d_input=d_input, d_output=d_output, vocab_size=vocab_size, classification=classification)
-         print_model_stats(model)
-         model = model.to(d)
-         if test_throughput: model_throughput(model, model.vocab_size, b=b, L=L)
-         optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs)
+   run_test_run = True
 
-         trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
-                 criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs)
+   test_modes = [True, False] if run_test_run else [False]
+   for test_mode in test_modes:
+      for d_name in datasetnames:
+         train_data = LRATensor(name=d_name, split="train")
+         eval_data  = LRATensor(name=d_name, split="eval")
+         train_loader = DataLoader(train_data, batch_size=b, shuffle=True, num_workers=num_workers)
+         eval_loader = DataLoader(eval_data, batch_size=b, shuffle=False, num_workers=num_workers)
+         x, y = next(iter(train_loader))
+         L = x.shape[1]
+         vocab_size = x.max() + 1
+         d_input = 1
+         d_output = y.max() + 1
+
+         for Model in Models:
+            print(f"\n Running on {d_name}")
+            model = Model(d_input=d_input, d_output=d_output, vocab_size=vocab_size, classification=classification)
+            m_name, n_params = print_model_stats(model)
+            model = model.to(d)
+            if test_throughput: model_throughput(model, model.vocab_size, b=b, L=L)
+            optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs)
+
+            if test_mode:
+               wandb_object = None
+            else:
+               wandb_object = wandb.init(project="LRA", config={"model":m_name, "data":d_name, "lr":lr, "b": b,
+                                        "n_layer":model.n_layer, "d_state":model.d_state,
+                                        "d_model":model.d_model, "n_params": n_params})
+
+            trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
+                    criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
+                    wandb_object=wandb_object)
+
 
 
 
