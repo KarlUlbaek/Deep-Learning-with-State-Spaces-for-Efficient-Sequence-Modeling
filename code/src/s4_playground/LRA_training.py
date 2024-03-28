@@ -179,14 +179,14 @@ if __name__ == "__main__":
 
       torch.cuda.reset_peak_memory_stats()
       t0 = time.perf_counter()
-      for _ in range(int(reps * 0.5)):
+      for _ in range(int(reps)):
          (model(batch)).sum().backward()
       torch.cuda.synchronize()
       t2 = (time.perf_counter() - t0) / reps
       mem2 = torch.cuda.max_memory_allocated()
 
       print(f"far/back mem GB: {mem1/1e9:.1f}, {mem2/1e9:.1f}")
-      print(f"far/back speed b/s: {t1:.4f}, {t2:.4f}")
+      print(f"far/back speed b/s: {1/t1:.1f}, {1/t2:.1f}")
 
 
 
@@ -208,7 +208,7 @@ if __name__ == "__main__":
    lr_scale = 0.1
    criterion = CrossEntropyLoss()
    test_mode = True
-   test_throughput = False
+   test_throughput = True
    for name in datasetnames:
       print(f"\n Running on {name}")
       train_data = LRATensor(name=name, split="train")
