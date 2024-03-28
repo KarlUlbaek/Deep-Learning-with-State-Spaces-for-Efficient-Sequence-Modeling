@@ -328,13 +328,13 @@ class s6ClassicModule(nn.Module):
       return y
 
 
-class S4Model(nn.Module):
+class S4ClassicModel(nn.Module):
    def __init__(
       self,
       d_input: int,
       d_output: int,
       classification=True,
-      discrete_input=False,
+      vocab_size = None, # implies a discrete input
       d_model=128,
       d_state=64,
       n_layer=4,
@@ -342,13 +342,14 @@ class S4Model(nn.Module):
       s4_or_s6 = s4ClassicModule,
       prenorm=False,
       layernorm=True,
-      mode = "diag",
+      s4 = {"mode": "dplr", "hippo_init": "legs"},
    ):
       super().__init__()
-
+      self.d_model, self.d_state, self.n_layer, self.dropout, self.s4 = d_model, d_state, n_layer, dropout, s4["mode"]
+      self.d_input, self.d_output, self.vocab_size = d_input, d_output, vocab_size
       self.prenorm = prenorm
-      if discrete_input:
-         self.encoder = nn.Embedding(d_input, d_model)
+      if vocab_size:
+         self.encoder = nn.Embedding(vocab_size, d_model)
       else:
          self.encoder = nn.Linear(d_input, d_model)
 
@@ -356,12 +357,12 @@ class S4Model(nn.Module):
       self.NotMambaShape = True if s4_or_s6.__name__ != "S6MambaModule" else False
 
       # Stack S4 layers as residual blocks
-      self.s4_layers = nn.ModuleList()
+      self.layers = nn.ModuleList()
       self.norms = nn.ModuleList()
       self.dropouts = nn.ModuleList()
       norm_fn = nn.LayerNorm if layernorm else RMSNorm
       for _ in range(n_layer):
-         self.s4_layers.append(s4_or_s6(d_model, d_state=d_state, dropout=dropout, mode=mode))
+         self.layers.append(s4_or_s6(d_model, d_state=d_state, dropout=dropout, **s4))
          self.norms.append(norm_fn(d_model))
          self.dropouts.append(nn.Dropout1d(dropout))
 
@@ -376,7 +377,7 @@ class S4Model(nn.Module):
 
       #print(self.NotMambaShape)
       if self.NotMambaShape: x = x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
-      for layer, norm, dropout in zip(self.s4_layers, self.norms, self.dropouts):
+      for layer, norm, dropout in zip(self.layers, self.norms, self.dropouts):
          # Each iteration of this loop will map (B, d_model, L) -> (B, d_model, L)
 
          residuals = x
@@ -415,7 +416,7 @@ if __name__ == "__main__":
 
 
 
-   s4model = S4Model(
+   s4model = S4ClassicModel(
                      d_input = d_input,
                      d_state = d_state,
                      s4_or_s6=S6MambaModule,

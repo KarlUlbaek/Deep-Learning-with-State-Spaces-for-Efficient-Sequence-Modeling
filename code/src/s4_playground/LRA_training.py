@@ -6,12 +6,12 @@ from torch.optim import AdamW
 from einops import rearrange
 from torch.nn import CrossEntropyLoss
 
-def trainer(model, train_dataloader, eval_dataloader, criterion, optimizer, scheduler, n_epochs):
+def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, scheduler, n_epochs):
    info_dict = {}
-   for epoch_dix in range(n_epochs):
-      p_bar = tqdm.tqdm(enumerate(train_dataloader),
-                        total=len(cifar_dataloader_train),
-                        desc="E: {}/{}".format(epoch_dix+1, n_epochs),
+   for epoch_idx in range(n_epochs):
+      p_bar = tqdm.tqdm(enumerate(train_loader),
+                        total=len(train_loader),
+                        desc="E: {}/{}".format(epoch_idx+1, n_epochs),
                         unit="b")
       p_bar.set_postfix(info_dict)
       correct, tot = 0, 0
@@ -32,22 +32,27 @@ def trainer(model, train_dataloader, eval_dataloader, criterion, optimizer, sche
          info_dict["loss"] = loss.item()
          p_bar.set_postfix(info_dict)
 
-      info_dict = eval(model, eval_dataloader, info_dict)
+         if test_mode and batch_idx == 1: break
+
+      info_dict = eval(model, eval_loader, info_dict, test_mode)
       info_dict["lr"] = scheduler.get_last_lr()[0]
       scheduler.step()
+      if test_mode and epoch_idx == 1:break
       #p_bar = tqdm.tqdm(enumerate(cifar_dataloader_train), unit="batch", total=len(cifar_dataloader_train))
 
       #if batch_idx % 20 == 0:
 @torch.no_grad()
-def eval(model, test_loader, info_dict):
+def eval(model, eval_loader, info_dict, test_mode):
    model.eval()
    all_preds = []
    ys = []
-   for x, y in test_loader:
+   for idx, (x, y) in enumerate(eval_loader):
       x, y = x.to(d), y.to(d)
       pred = model(x)
       all_preds.append(pred)
       ys.append(y)
+
+      if test_mode and idx == 1: break
 
    all_preds = torch.cat(all_preds)
    ys = torch.cat(ys)
@@ -66,6 +71,14 @@ if __name__ == "__main__":
    import sys
    sys.path.append(os.getcwd())
 
+   # todo
+   # infer model specs
+   # print model specs
+   # make all training configs
+   # make quick training run of all configs
+   # wandb
+   # clean up
+
    ROOT = "../../data/cifar10/"
    class Cifar10seq(Dataset):
       def __init__(self, train=True, d="cpu"):
@@ -83,72 +96,140 @@ if __name__ == "__main__":
          return self.x[idx], self.y[idx]
 
 
-   b = 16
-   num_workers = 6
-   cifar_dataloader_train = DataLoader(dataset=Cifar10seq(train=True),
-                                       shuffle=True,
-                                       batch_size=b, num_workers=num_workers)
-   cifar_dataloader_test = DataLoader(dataset=Cifar10seq(train=False),
-                                      shuffle=False,
-                                      batch_size=b,
-                                      num_workers=num_workers)
-
-   n_layers = 4
-   d_data = 3
-   d_model = 128  # 1028//2
-   d_state = 64
-   dropout = 0.1
-   L = next(iter(cifar_dataloader_train))[0].shape[1]
-   d = "cuda"
-   classes = 10
-   classification = True
+   # b = 16
+   # num_workers = 6
+   # cifar_dataloader_train = DataLoader(dataset=Cifar10seq(train=True),
+   #                                     shuffle=True,
+   #                                     batch_size=b, num_workers=num_workers)
+   #
+   # cifar_dataloader_test = DataLoader(dataset=Cifar10seq(train=False),
+   #                                    shuffle=False,
+   #                                    batch_size=b,
+   #                                    num_workers=num_workers)
+   #
+   # d_data = 3
+   # d_model = 128  # 1028//2
+   # d_state = 64
+   # dropout = 0.1
+   # L = next(iter(cifar_dataloader_train))[0].shape[1]
+   # d = "cuda"
+   # classes = 10
+   # classification = True
 
    if torch.cuda.get_device_name(0) == "NVIDIA GeForce GTX 1080 Ti":
       fast = False
    else:
       fast = True
 
-   from mamba_fork.mamba_ssm.models.mixer_seq_simple import MambaModel as MambaNN
+   from mamba_fork.mamba_ssm.models.mixer_seq_simple import MambaModel
+   from s4_modules import S4ClassicModel, s4ClassicModule
+   from functools import partial
 
-   s6NN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, dropout=dropout,
-                  d_output=classes, discrete_input=False, fused_add_norm=fast, rms_norm=fast,
-                  classification=classification).to(d)
 
-   s4NN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, dropout=dropout,
-                  d_output=classes, discrete_input=False, fused_add_norm=fast, rms_norm=fast,
-                  s4={"mode": "dplr", "hippo_init": "legs"}, classification=classification).to(d)
+   n_layer = 4
+   d_model = 128
+   d_state = 16
+   dropout = 0.1
+   s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                     fused_add_norm=fast, rms_norm=fast)
 
-   s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, dropout=dropout,
-                   d_output=classes, discrete_input=False, fused_add_norm=fast, rms_norm=fast,
-                   s4={"mode": "diag", "hippo_init": "legs"}, classification=classification).to(d)
+   s4Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                     fused_add_norm=fast, rms_norm=fast, s4={"mode": "dplr", "hippo_init": "legs"})
 
-   model = s6NN
+   s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                      fused_add_norm=fast, rms_norm=fast, s4={"mode": "diag", "hippo_init": "legs"})
 
-   # from s4_fork.example import model
-   print(model)
-   # print(model)
-   # opt = AdamW(model.parameters(), lr=lr, foreach=True)
-   n_epochs = 100
+   d_state = 64
+   layernorm = True # = True means layernorm and not RMS
+   prenorm = False # =
+   s4Classic  = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
+                        d_state=d_state, dropout=dropout, s4={"mode": "dplr", "hippo_init": "legs"},
+                        layernorm=layernorm, prenorm=prenorm)
+   s4dClassic = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
+                        d_state=d_state, dropout=dropout, s4={"mode": "diag", "hippo_init": "legs"},
+                        layernorm=layernorm, prenorm=prenorm)
+
+   def print_model_stats(model):
+      name = model.__class__.__name__ + " " + model.s4
+      n_layer, d_state, d_model = model.n_layer, model.d_state, model.d_model
+      trainable_params = sum([param.numel() for param in model.parameters() if param.requires_grad])
+      nontrainable_params = sum([param.numel() for param in model.parameters() if not param.requires_grad])
+      print("####################################################################################")
+      print(f"{name}: trainable {trainable_params/1e6:.3f}m, \n"
+            f"n_layers: {n_layer}, d_model: {d_model}, d_state: {d_state}")
+      if nontrainable_params != 0: print("nontrainable params!!!!!!!!!1", nontrainable_params)
+      #print("####################################################################################")
+
+   # assumes tokesn atm
+   def model_throughput(model, vocab_size, b=64, L=1000, reps=5):
+      import time
+      batch = (torch.rand((b, L))*(vocab_size-1)).to(torch.long).abs()
+      batch = batch.to("cuda")
+      for _ in range(2):
+         model(batch)
+      torch.cuda.synchronize()
+
+      torch.cuda.reset_peak_memory_stats()
+      t0 = time.perf_counter()
+      for _ in range(reps):
+         model(batch)
+      torch.cuda.synchronize()
+      t1 = (time.perf_counter() - t0) / reps
+      mem1 = torch.cuda.max_memory_allocated()
+
+      torch.cuda.reset_peak_memory_stats()
+      t0 = time.perf_counter()
+      for _ in range(int(reps * 0.5)):
+         (model(batch)).sum().backward()
+      torch.cuda.synchronize()
+      t2 = (time.perf_counter() - t0) / reps
+      mem2 = torch.cuda.max_memory_allocated()
+
+      print(f"far/back mem GB: {mem1/1e9:.1f}, {mem2/1e9:.1f}")
+      print(f"far/back speed b/s: {t1:.4f}, {t2:.4f}")
+
+
+
+
+   Models = [s6Mamba, s4Mamba, s4dMamba, s4Classic, s4dClassic]
+
 
    from misc import setup_optimizer
 
    from lra_benchmarks_fork.lra_datasets import LRATensor
-   datasetnames = ["ImdbDataset", "Cifar10Dataset", "ListOpsDataset"]
+   datasetnames = ["ListOpsDataset", "ImdbDataset", "Cifar10Dataset"]
 
-   for name in datasetnames:
-      print(LRATensor(name=name, split="train"))
-      print(LRATensor(name=name, split="eval"))
-
+   n_epochs = 100
+   b = 64
+   classification = True
+   num_workers = 6
+   d = "cuda"
    lr = 3e-3
    lr_scale = 0.1
-   optimizer, scheduler = setup_optimizer(model, opt=AdamW, lr=lr, lr_scale=lr_scale, epochs=n_epochs)
    criterion = CrossEntropyLoss()
+   test_mode = True
+   test_throughput = False
+   for name in datasetnames:
+      print(f"\n Running on {name}")
+      train_data = LRATensor(name=name, split="train")
+      eval_data  = LRATensor(name=name, split="eval")
+      train_loader = DataLoader(train_data, batch_size=b, shuffle=True, num_workers=num_workers)
+      eval_loader = DataLoader(eval_data, batch_size=b, shuffle=False, num_workers=num_workers)
+      x, y = next(iter(train_loader))
+      L = x.shape[1]
+      vocab_size = x.max() + 1
+      d_input = 1
+      d_output = y.max() + 1
 
-   print("trainable params:", sum([param.numel() for param in model.parameters() if param.requires_grad]))
+      for Model in Models:
+         model = Model(d_input=d_input, d_output=d_output, vocab_size=vocab_size, classification=classification)
+         print_model_stats(model)
+         model = model.to(d)
+         if test_throughput: model_throughput(model, model.vocab_size, b=b, L=L)
+         optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs)
 
-
-   trainer(model=model, train_dataloader=cifar_dataloader_train, eval_dataloader=cifar_dataloader_test,
-           criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs)
+         trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
+                 criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs)
 
 
 

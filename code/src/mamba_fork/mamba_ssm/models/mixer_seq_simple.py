@@ -101,7 +101,7 @@ class MambaModel(nn.Module):
         d_input: int,
         d_output: int,
         classification=True,
-        discrete_input=False,
+        vocab_size = None, # corrosponds to discrete input
         d_model= 128,
         d_state= 16,
         n_layer= 4,
@@ -116,15 +116,18 @@ class MambaModel(nn.Module):
         dtype=None,
         s4=None  # {mode:"dplr", hippo_init ="legs"}
     ) -> None:
-        factory_kwargs = {"device": device, "dtype": dtype}
+        #factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.residual_in_fp32 = residual_in_fp32
         self.classification = classification
+        self.d_model, self.d_state, self.n_layer, dropout = d_model, d_state, n_layer, dropout
+        self.d_input, self.d_output, self.vocab_size= d_input, d_output, vocab_size
+        self.s4 = "s6" if s4 is None else s4["mode"]
 
-        if discrete_input:
-            self.embedding = nn.Embedding(d_input, d_model, **factory_kwargs)
+        if vocab_size:
+            self.encoder = nn.Embedding(vocab_size, d_model)
         else:
-            self.embedding = nn.Linear(d_input, d_model)
+            self.encoder = nn.Linear(d_input, d_model)
 
         self.decoder = nn.Linear(d_model, d_output)
 
@@ -151,14 +154,14 @@ class MambaModel(nn.Module):
                     fused_add_norm=fused_add_norm,
                     layer_idx=i,
                     s4=s4,  # {mode:"dplr", hippo_init ="legs"}
-                    **factory_kwargs,
+                    #**factory_kwargs,
                 )
                 for i in range(n_layer)
             ]
         )
 
         self.norm_f = (nn.LayerNorm if not rms_norm else RMSNorm)(
-            d_model, eps=norm_epsilon, **factory_kwargs
+            d_model, eps=norm_epsilon, #**factory_kwargs
         )
 
         self.apply(
@@ -176,7 +179,7 @@ class MambaModel(nn.Module):
         }
 
     def forward(self, input_ids, inference_params=None):
-        hidden_states = self.embedding(input_ids)
+        hidden_states = self.encoder(input_ids)
         residual = None
         for layer in self.layers:
             hidden_states, residual = layer(
@@ -254,7 +257,7 @@ class MambaLMHeadModel(nn.Module, GenerationMixin):
 
     def tie_weights(self):
         if self.config.tie_embeddings:
-            self.lm_head.weight = self.backbone.embedding.weight
+            self.lm_head.weight = self.backbone.encoder.weight
     
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
         return self.backbone.allocate_inference_cache(batch_size, max_seqlen, dtype=dtype, **kwargs)

@@ -136,8 +136,10 @@ class LRATensor(Dataset):
             print("making tensor dataset!")
             make_tensor_dataset(Dataset)
 
-        self.x = torch.load("../../data/{}/x_{}.pt".format(name, split)).to(torch.int)
-        self.y = torch.load("../../data/{}/y_{}.pt".format(name, split)).to(torch.int)
+        self.x = torch.load("../../data/{}/x_{}.pt".format(name, split)).to(torch.long).squeeze()
+        self.y = torch.load("../../data/{}/y_{}.pt".format(name, split)).to(torch.long).squeeze()
+        #if needtranspose: self.x = self.x.transpose(-1, -2)
+
 
     def __len__(self):
         return self.x.shape[0]

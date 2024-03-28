@@ -299,7 +299,7 @@ if args.resume:
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
 
-from s4_playground.s4_modules import S4Model as S4Model_, s6ClassicModule, s4ClassicModule, S6MambaModule
+from s4_playground.s4_modules import S4ClassicModel as S4Model_, s6ClassicModule, s4ClassicModule, S6MambaModule
 from s4_playground.misc import setup_optimizer
 #
 model = S4Model_(
