@@ -386,12 +386,12 @@ class S4Model(nn.Module):
 
          residuals = x
          if self.prenorm:
-            if self.NotMambaShape: norm(x.transpose(-1, -2)).transpose(-1, -2)
-            else:                  norm(x)
+            if self.NotMambaShape: norm(residuals.transpose(-1, -2)).transpose(-1, -2)
+            else:                  norm(residuals)
 
          # Apply S4 block: we ignore the state input and output
-         x = layer(x)
-         x = dropout(x)
+         residuals = layer(residuals)
+         residuals = dropout(residuals)
          x = x + residuals
 
          if not self.prenorm:
