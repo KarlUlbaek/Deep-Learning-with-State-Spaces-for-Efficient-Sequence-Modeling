@@ -13,7 +13,7 @@ from mamba_ssm.ops.triton.layernorm import RMSNorm
 from mamba_fork.mamba_ssm.modules.mamba_simple import S6MambaModule
 
 from mamba_ssm import selective_scan_fn
-from s4_fork.models.s4.s4 import DropoutNd, SSMKernelDiag, SSMKernelDPLR
+from s4_fork.models.s4.s4 import SSMKernelDiag, SSMKernelDPLR
 kernel_registry = {
     's4d': SSMKernelDiag,
     'diag': SSMKernelDiag,
@@ -67,8 +67,8 @@ class FFTConvLean(nn.Module):
          **kernel_args,
       )
 
-      dropout_fn = DropoutNd if tie_dropout else nn.Dropout
-      self.drop = dropout_fn(dropout) if dropout > 0.0 else nn.Identity()
+      #dropout_fn = DropoutNd if tie_dropout else nn.Dropout
+      self.drop = nn.Dropout1d(dropout) if dropout > 0.0 else nn.Identity()
       #self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0.0 else nn.Identity()
 
    def forward(self, x, state=None, rate=1.0, **kwargs):  # absorbs return_output and transformer src mask
@@ -144,7 +144,7 @@ class s4MambaModule(nn.Module):
          **factory_kwargs,
       )
 
-      self.dropout = DropoutNd(p=dropout) if dropout > 0.0 else nn.Identity()
+      self.dropout = nn.Dropout1d(p=dropout) if dropout > 0.0 else nn.Identity()
       self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
 
@@ -199,7 +199,7 @@ class s4ClassicModule(nn.Module):
 
       self.activation = nn.GELU()
       # dropout_fn = nn.Dropout2d # NOTE: bugged in PyTorch 1.11
-      self.dropout = DropoutNd(dropout) if dropout > 0.0 else nn.Identity()
+      self.dropout = nn.Dropout1d(dropout) if dropout > 0.0 else nn.Identity()
 
       # position-wise output transform to mix features
       self.output_linear = nn.Sequential(
@@ -294,7 +294,7 @@ class s6ClassicModule(nn.Module):
 
 
       self.activation = nn.GELU()
-      self.dropout = DropoutNd(dropout) if dropout > 0.0 else nn.Identity()
+      self.dropout = nn.Dropout1d(dropout) if dropout > 0.0 else nn.Identity()
 
       # position-wise output transform to mix features
       self.output_linear = nn.Sequential(

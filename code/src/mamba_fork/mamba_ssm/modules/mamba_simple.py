@@ -28,29 +28,29 @@ except ImportError:
     print("triton import error")
     RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
-class DropoutNd(nn.Module):
-    def __init__(self, p: float = 0.5, tie=True, transposed=True):
-        """
-        tie: tie dropout mask across sequence lengths (Dropout1d/2d/3d)
-        """
-        super().__init__()
-        if p < 0 or p >= 1:
-            raise ValueError("dropout probability has to be in [0, 1), " "but got {}".format(p))
-        self.p = p
-        self.tie = tie
-        self.transposed = transposed
-        self.binomial = torch.distributions.binomial.Binomial(probs=1-self.p)
-
-    def forward(self, X):
-        """X: (batch, dim, lengths...)."""
-        if self.training:
-            if not self.transposed: X = rearrange(X, 'b ... d -> b d ...')
-            mask_shape = X.shape[:2] + (1,)*(X.ndim-2) if self.tie else X.shape
-            mask = torch.rand(*mask_shape, device=X.device) < 1.-self.p
-            X = X * mask * (1.0/(1-self.p))
-            if not self.transposed: X = rearrange(X, 'b d ... -> b ... d')
-            return X
-        return X
+# class DropoutNd(nn.Module):
+#     def __init__(self, p: float = 0.5, tie=True, transposed=True):
+#         """
+#         tie: tie dropout mask across sequence lengths (Dropout1d/2d/3d)
+#         """
+#         super().__init__()
+#         if p < 0 or p >= 1:
+#             raise ValueError("dropout probability has to be in [0, 1), " "but got {}".format(p))
+#         self.p = p
+#         self.tie = tie
+#         self.transposed = transposed
+#         self.binomial = torch.distributions.binomial.Binomial(probs=1-self.p)
+#
+#     def forward(self, X):
+#         """X: (batch, dim, lengths...)."""
+#         if self.training:
+#             if not self.transposed: X = rearrange(X, 'b ... d -> b d ...')
+#             mask_shape = X.shape[:2] + (1,)*(X.ndim-2) if self.tie else X.shape
+#             mask = torch.rand(*mask_shape, device=X.device) < 1.-self.p
+#             X = X * mask * (1.0/(1-self.p))
+#             if not self.transposed: X = rearrange(X, 'b d ... -> b ... d')
+#             return X
+#         return X
 
 class S6MambaModule(nn.Module):
     def __init__(
@@ -141,7 +141,7 @@ class S6MambaModule(nn.Module):
         self.D._optim = True
         self.D._no_weight_decay = True
 
-        self.dropout = DropoutNd(p=dropout) if dropout is not None else nn.Identity()
+        self.dropout = nn.Dropout1d(p=dropout) if dropout > 0.0 else nn.Identity()
         self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
     def forward(self, hidden_states, inference_params=None):
@@ -328,7 +328,7 @@ class S6MambaModule(nn.Module):
 
 class MambaBlock(nn.Module):
     def __init__(
-        self, d_model, d_state, mixer_cls, dropout = None, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=False
+        self, d_model, d_state, mixer_cls, dropout = 0.0, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=False
     ):
         """
         Simple block wrapping a mixer class with LayerNorm/RMSNorm and residual connection"
@@ -345,9 +345,8 @@ class MambaBlock(nn.Module):
         super().__init__()
         self.residual_in_fp32 = residual_in_fp32
         self.fused_add_norm = fused_add_norm
-        self.mixer = mixer_cls(d_model, d_state)
+        self.mixer = mixer_cls(d_model=d_model, d_state=d_state, dropout=dropout)
         self.norm = norm_cls(d_model)
-        self.dropout = nn.Dropout(p=dropout) if dropout is not None else nn.Identity()
         if self.fused_add_norm:
             assert RMSNorm is not None, "RMSNorm import fails"
             assert isinstance(

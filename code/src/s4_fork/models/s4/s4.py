@@ -1694,9 +1694,9 @@ class FFTConv(nn.Module):
             **kernel_args,
         )
 
-        dropout_fn = DropoutNd if tie_dropout else nn.Dropout
-        self.drop = dropout_fn(dropout) if dropout > 0.0 else nn.Identity()
-        self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0.0 else nn.Identity()
+        #dropout_fn = DropoutNd if tie_dropout else nn.Dropout
+        self.drop = nn.Dropout1d(dropout) if dropout > 0.0 else nn.Identity()
+        self.drop_kernel = nn.Dropout1d(drop_kernel) if drop_kernel > 0.0 else nn.Identity()
 
     def forward(self, x, state=None, rate=1.0, **kwargs): # absorbs return_output and transformer src mask
         """
