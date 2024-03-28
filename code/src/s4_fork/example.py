@@ -305,12 +305,12 @@ from s4_playground.misc import setup_optimizer
 model = S4Model_(
     d_input=d_input,
     d_state=64,
-    s4_or_s6=s4ClassicModule,
+    s4_or_s6=S6MambaModule,
     d_output=d_output,
     d_model=128,
     n_layers=args.n_layers,
     dropout=0.1,
-    layernorm=True,
+    layernorm=False,
     prenorm=args.prenorm,
 ).to(device)
 

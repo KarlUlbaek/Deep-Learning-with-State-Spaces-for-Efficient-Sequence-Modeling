@@ -384,19 +384,19 @@ class S4Model(nn.Module):
       for layer, norm, dropout in zip(self.s4_layers, self.norms, self.dropouts):
          # Each iteration of this loop will map (B, d_model, L) -> (B, d_model, L)
 
-         z = x
+         residuals = x
          if self.prenorm:
-            if self.NotMambaShape: norm(z.transpose(-1, -2)).transpose(-1, -2)
-            else:                  norm(z)
+            if self.NotMambaShape: norm(x.transpose(-1, -2)).transpose(-1, -2)
+            else:                  norm(x)
 
          # Apply S4 block: we ignore the state input and output
-         z = layer(z)
-         z = dropout(z)
-         x = z + x
+         x = layer(x)
+         x = dropout(x)
+         x = x + residuals
 
          if not self.prenorm:
-            if self.NotMambaShape: norm(z.transpose(-1, -2)).transpose(-1, -2)
-            else:                  norm(z)
+            if self.NotMambaShape: norm(x.transpose(-1, -2)).transpose(-1, -2)
+            else:                  norm(x)
 
       if self.NotMambaShape: x = x.transpose(-1, -2)
 
