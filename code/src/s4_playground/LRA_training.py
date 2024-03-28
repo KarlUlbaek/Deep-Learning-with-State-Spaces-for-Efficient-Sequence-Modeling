@@ -8,7 +8,6 @@ from torch.nn import CrossEntropyLoss
 
 def trainer(model, train_dataloader, eval_dataloader, criterion, optimizer, scheduler, n_epochs):
    info_dict = {}
-   scaler = torch.cuda.amp.GradScaler()
    for epoch_dix in range(n_epochs):
       p_bar = tqdm.tqdm(enumerate(train_dataloader),
                         total=len(cifar_dataloader_train),
@@ -20,13 +19,11 @@ def trainer(model, train_dataloader, eval_dataloader, criterion, optimizer, sche
 
       for batch_idx, (x, y) in p_bar:
          x, y = x.to(d), y.to(d)
-         with torch.autocast(device_type="cuda", dtype=torch.float16):
-            pred = model(x)
-            loss = criterion(pred, y)
+         pred = model(x)
+         loss = criterion(pred, y)
 
-         scaler.scale(loss).backward()
-         scaler.step(optimizer)
-         scaler.update()
+         loss.backward()
+         optimizer.step()
          optimizer.zero_grad()
 
          correct += torch.sum((torch.argmax(pred, dim=-1) == y).to(float))
@@ -48,8 +45,7 @@ def eval(model, test_loader, info_dict):
    ys = []
    for x, y in test_loader:
       x, y = x.to(d), y.to(d)
-      with torch.autocast(device_type="cuda", dtype=torch.float16):
-         pred = model(x)
+      pred = model(x)
       all_preds.append(pred)
       ys.append(y)
 
@@ -87,7 +83,7 @@ if __name__ == "__main__":
          return self.x[idx], self.y[idx]
 
 
-   b = 64
+   b = 16
    num_workers = 6
    cifar_dataloader_train = DataLoader(dataset=Cifar10seq(train=True),
                                        shuffle=True,
@@ -135,6 +131,13 @@ if __name__ == "__main__":
    n_epochs = 100
 
    from misc import setup_optimizer
+
+   from lra_benchmarks_fork.lra_datasets import LRATensor
+   datasetnames = ["ImdbDataset", "Cifar10Dataset", "ListOpsDataset"]
+
+   for name in datasetnames:
+      print(LRATensor(name=name, split="train"))
+      print(LRATensor(name=name, split="eval"))
 
    lr = 3e-3
    lr_scale = 0.1

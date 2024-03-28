@@ -299,20 +299,21 @@ if args.resume:
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
 
-# from s4_playground.s4_modules import S4Model as S4Model_, s6ClassicModule, s4ClassicModule, S6MambaModule
+from s4_playground.s4_modules import S4Model as S4Model_, s6ClassicModule, s4ClassicModule, S6MambaModule
 from s4_playground.misc import setup_optimizer
 #
-# model = S4Model_(
-#     d_input=d_input,
-#     d_state=64,
-#     s4_or_s6=s4ClassicModule,
-#     d_output=d_output,
-#     d_model=256,
-#     n_layers=args.n_layers,
-#     dropout=0.1,
-#     layernorm=True,
-#     prenorm=False,
-# ).to(device)
+model = S4Model_(
+    d_input=d_input,
+    d_state=64,
+    s4_or_s6=s4ClassicModule,
+    d_output=d_output,
+    d_model=256,
+    n_layer=args.n_layers,
+    dropout=0.1,
+    layernorm=True,
+    prenorm=False,
+    mode="dplr"
+).to(device)
 
 
 criterion = nn.CrossEntropyLoss()
