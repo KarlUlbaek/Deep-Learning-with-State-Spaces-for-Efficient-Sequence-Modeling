@@ -208,7 +208,7 @@ if __name__ == "__main__":
    classification = True
    num_workers = 6
    d = "cuda"
-   lr = 3e-3
+   lr = 1e-3
    lr_scale = 0.1
    criterion = CrossEntropyLoss()
    test_throughput = True
