@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
 
    n_layer = 4
-   d_model = 128
+   d_model = 86
    d_state = 16
    dropout = 0.1
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
@@ -143,6 +143,7 @@ if __name__ == "__main__":
                       fused_add_norm=fast, rms_norm=fast, s4={"mode": "diag", "hippo_init": "legs"})
 
    d_state = 64
+   d_model = 128
    layernorm = True # = True means layernorm and not RMS
    prenorm = False # =
    s4Classic  = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
@@ -195,26 +196,26 @@ if __name__ == "__main__":
 
 
 
-   Models = [s6Mamba, s4Mamba, s4dMamba, s4Classic, s4dClassic]
+   Models = [s4Classic, s4dClassic, s6Mamba, s4Mamba, s4dMamba]
 
 
    from misc import setup_optimizer
 
    from lra_benchmarks_fork.lra_datasets import LRATensor
-   datasetnames = ["ListOpsDataset", "ImdbDataset", "Cifar10Dataset"]
+   datasetnames = ["Cifar10Dataset", "ListOpsDataset", "ImdbDataset"]
 
-   n_epochs = 100
+   n_epochs = 30
    b = 64
    classification = True
    num_workers = 6
    d = "cuda"
-   lr = 1e-3
+   lr = 3e-3
    lr_scale = 0.1
    criterion = CrossEntropyLoss()
    test_throughput = True
 
    run_test_run = True
-
+   wandb.login(key="b797f78f8b0f6b430d646e95a505e747eef4315c")
    test_modes = [True, False] if run_test_run else [False]
    for test_mode in test_modes:
       for d_name in datasetnames:
@@ -239,13 +240,14 @@ if __name__ == "__main__":
             if test_mode:
                wandb_object = None
             else:
-               wandb_object = wandb.init(project="LRA", config={"model":m_name, "data":d_name, "lr":lr, "b": b,
+               wandb_object = wandb.init(project="LRA2", config={"model":m_name, "data":d_name, "lr":lr, "b": b,
                                         "n_layer":model.n_layer, "d_state":model.d_state,
                                         "d_model":model.d_model, "n_params": n_params})
 
             trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
                     criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
                     wandb_object=wandb_object)
+            model = model.to("cpu")
 
 
 
