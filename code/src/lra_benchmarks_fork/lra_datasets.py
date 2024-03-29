@@ -99,7 +99,7 @@ class Cifar10Dataset(Dataset):
         return len(self.data[b'data'])
 
 
-def make_tensor_dataset(Dataset):
+def make_tensor_dataset(Dataset, dtype=torch.int16):
     name = Dataset.__name__
     os.makedirs("../../data/{}_tensors".format(name) ,exist_ok=True)
     print("makeing {} tensor data".format(name))
@@ -111,11 +111,19 @@ def make_tensor_dataset(Dataset):
             all_x.append(x)
             all_y.append(y)
 
+        try:
+            torch.save(torch.cat([x["input_ids"] for x in all_x]).to(dtype),
+                       "../../data/{}_tensors/x_{}.pt".format(name, split))
 
-        torch.save(torch.cat([x["input_ids"] for x in all_x]).to(torch.int16),
-                   "../../data/{}_tensors/x_{}.pt".format(name, split))
-        torch.save(torch.cat(all_y).to(torch.int16),
-                   "../../data/{}_tensors/y_{}.pt".format(name, split))
+            torch.save(torch.cat(all_y).to(torch.int16),
+                       "../../data/{}_tensors/y_{}.pt".format(name, split))
+        except IndexError:
+            torch.save(torch.cat([x for x in all_x]).to(dtype),
+                       "../../data/{}_tensors/x_{}.pt".format(name, split))
+
+            torch.save(torch.cat(all_y).to(torch.int16),
+                       "../../data/{}_tensors/y_{}.pt".format(name, split))
+
 
 class LRATensor(Dataset):
     def __init__(self, name, split="train"):
@@ -127,7 +135,10 @@ class LRATensor(Dataset):
         if not name.endswith("_tensors"):
             name += "_tensors"
 
-        assert name in ["ImdbDataset_tensors", "Cifar10Dataset_tensors", "ListOpsDataset_tensors"]
+        assert name in ["ImdbDataset_tensors_tensors", "Cifar10DatasetToken_tensors",
+                        "ListOpsDataset_tensors", "Cifar10DatasetCont_tensors"] , (
+            "{} name is not supported".format(name))
+
         assert split in ["train", "eval"]
 
         if (not os.path.exists("../../data/{}/x_{}.pt".format(name, split)) or
@@ -136,7 +147,13 @@ class LRATensor(Dataset):
             print("making tensor dataset!")
             make_tensor_dataset(Dataset)
 
-        self.x = torch.load("../../data/{}/x_{}.pt".format(name, split)).to(torch.long).squeeze()
+
+        x = torch.load("../../data/{}/x_{}.pt".format(name, split))
+        if x.dtype in [torch.int8, torch.int16, torch.int32, torch.int64]:
+            self.x = x.to(torch.long).squeeze()
+        else:
+            self.x = x.to(torch.float32)
+
         self.y = torch.load("../../data/{}/y_{}.pt".format(name, split)).to(torch.long).squeeze()
         #if needtranspose: self.x = self.x.transpose(-1, -2)
 
@@ -147,10 +164,35 @@ class LRATensor(Dataset):
     def __getitem__(self, idx):
         return self.x[idx], self.y[idx]
 
+import torchvision
+from einops import rearrange
+ROOT_data = "../../data/cifar10/"
+class Cifar10DatasetCont(Dataset):
+    def __init__(self, split="train", d="cpu"):
+        if split == "train":
+            split = True
+        data = torchvision.datasets.CIFAR10(root=ROOT_data, train=split, download=False)
+        x = torch.from_numpy(data.data).to(torch.float)
+        x = rearrange(x, "a b c d -> a (b c) d")
+        x = x / x.max()
+        self.x = x.to(d)
+        self.y = torch.tensor(data.targets).to(d).to(torch.long)
+
+    def __len__(self):
+         return self.x.shape[0]
+
+    def __getitem__(self, idx):
+        return self.x[idx], self.y[idx]
+
+
 
 if __name__ == "__main__":
     from tqdm import tqdm
     from lra_config import (get_listops_config, get_cifar10_config, get_text_classification_config)
+
+    # data = ListOpsDataset()
+
+    make_tensor_dataset(Cifar10DatasetCont, dtype=torch.float16)
 
     for d in [ImdbDataset, Cifar10Dataset, ListOpsDataset]:
         data = LRATensor(d)

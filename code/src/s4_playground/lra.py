@@ -14,9 +14,8 @@ import torchvision
 from einops.layers.torch import Rearrange, Reduce
 from PIL import Image  # Only used for Pathfinder
 import sys
-print(sys.path)
 
-from datasets import DatasetDict#, Value, load_dataset
+from datasets import DatasetDict, Value, load_dataset
 
 from s4_fork.src.dataloaders.base import default_data_path, SequenceDataset, ImageResolutionSequenceDataset
 
@@ -50,9 +49,10 @@ class IMDB(SequenceDataset):
         else:  # Process the dataset and save it
             self.process_dataset()
 
-    def setup(self, stage=None):
+    def setup(self, data_dir, stage=None):
         """If cache_dir is not None, we'll cache the processed dataset there."""
-        self.data_dir = self.data_dir or default_data_path / self._name_
+        #self.data_dir = self.data_dir or default_data_path / self._name_
+        self.data_dir = Path(data_dir)
         self.cache_dir = self.data_dir / "cache"
         assert self.level in [
             "word",
@@ -372,7 +372,7 @@ class PathFinderDataset(torch.utils.data.Dataset):
     """Path Finder dataset."""
 
     # There's an empty file in the dataset
-    blacklist = {"pathfinder32/curv_baseline/imgs/0/sample_172.png"}
+    blacklist = "imgs/0/sample_172.png"
 
     def __init__(self, data_dir, transform=None):
         """
@@ -383,8 +383,8 @@ class PathFinderDataset(torch.utils.data.Dataset):
         """
         self.data_dir = Path(data_dir).expanduser()
         assert self.data_dir.is_dir(), f"data_dir {str(self.data_dir)} does not exist"
-        self.transform = transform
         samples = []
+        #self.data_dir = Path(os.getcwd()) / self.data_dir
         # for diff_level in ['curv_baseline', 'curv_contour_length_9', 'curv_contour_length_14']:
         for diff_level in ["curv_contour_length_14"]:
             path_list = sorted(
@@ -398,12 +398,12 @@ class PathFinderDataset(torch.utils.data.Dataset):
                         metadata = metadata.split()
                         image_path = Path(diff_level) / metadata[0] / metadata[1]
                         if (
-                            str(Path(self.data_dir.stem) / image_path)
-                            not in self.blacklist
+                            not str(Path(self.data_dir.stem) / image_path).endswith(self.blacklist)
                         ):
                             label = int(metadata[3])
                             samples.append((image_path, label))
         self.samples = samples
+        self.transform = transform
 
     def __len__(self):
         return len(self.samples)
@@ -415,6 +415,8 @@ class PathFinderDataset(torch.utils.data.Dataset):
             sample = Image.open(f).convert("L")  # Open in grayscale
         if self.transform is not None:
             sample = self.transform(sample)
+        #from einops import rearrange
+        #sample = (rearrange(self.transform(sample), "a b c -> (b c) a") - 0.5)*2
         return sample, target
 
 class PathFinder(ImageResolutionSequenceDataset):
@@ -482,12 +484,12 @@ class PathFinder(ImageResolutionSequenceDataset):
             """
             )
 
-    def setup(self, stage=None):
+    def setup(self, data_dir, stage=None):
         if self.data_dir is None:
             self.data_dir = (
                 default_data_path / self._name_ / f"pathfinder{self.resolution}"
             )
-
+        self.data_dir = Path(data_dir) / self._name_ / f"pathfinder{self.resolution}"
         if stage == "test" and hasattr(self, "dataset_test"):
             return
         # [2021-08-18] TD: I ran into RuntimeError: Too many open files.
@@ -694,4 +696,38 @@ class AAN(SequenceDataset):
 
 
 if __name__ == "__main__":
-    IMDB()
+    #default_data_path = ("../../data/datasets")
+    if (default_data_path := os.getenv("DATA_PATH")) is None:
+        default_data_path = Path(__file__).parent.parent.parent.absolute()
+        default_data_path = default_data_path / "data"
+    else:
+        default_data_path = Path(default_data_path).absolute()
+    #
+    from s4_fork.src.dataloaders.basic import CIFAR10
+
+    import tqdm
+
+    c = CIFAR10("cifar")
+    c.tokenize = True
+    c.grayscale = True
+    c.setup()
+    for d in tqdm.tqdm(c.train_dataloader(batch_size=64, num_workers=6)):
+        print(" ")
+
+    d = IMDB("imdb")
+    d.setup()
+    for _ in tqdm.tqdm(d.train_dataloader(batch_size=64, num_workers=6)): pass
+    p = PathFinder("pathfinder")
+    p.tokenize = False
+    p.setup()
+    for val in tqdm.tqdm(p.train_dataloader(batch_size=64, num_workers=6)):
+        print("")
+
+    # d = PathFinderDataset("../../data")
+    # # from torch.utils.data import DataLoader
+    # d = DataLoader(d, batch_size=64, num_workers=6)
+    # for x,y in tqdm.tqdm(d):
+    #     print(x.shape)
+    #     print(y)
+    # #next(iter((d.train_dataloader(batch_size=64))))
+    # print("../../data")

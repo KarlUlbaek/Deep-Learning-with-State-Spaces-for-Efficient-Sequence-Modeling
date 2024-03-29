@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from src.dataloaders.base import default_data_path, SequenceDataset, deprecated
+from s4_fork.src.dataloaders.base import default_data_path, SequenceDataset, deprecated
 
 class BIDMC(SequenceDataset):
     """BIDMC datasets for Respiratory Rate / Heart Rate / Oxygen Saturation regression"""

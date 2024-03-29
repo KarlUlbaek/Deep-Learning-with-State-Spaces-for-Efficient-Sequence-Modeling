@@ -4,9 +4,9 @@ import numpy as np
 import torch
 import torchvision
 from einops.layers.torch import Rearrange
-from src.utils import permutations
+from s4_fork.src.utils import permutations
 
-from src.dataloaders.base import default_data_path, ImageResolutionSequenceDataset, ResolutionSequenceDataset, SequenceDataset
+from s4_fork.src.dataloaders.base import default_data_path, ImageResolutionSequenceDataset, ResolutionSequenceDataset, SequenceDataset
 
 
 class MNIST(SequenceDataset):
@@ -65,6 +65,10 @@ class CIFAR10(ImageResolutionSequenceDataset):
     l_output = 0
 
     @property
+    def n_tokens(self):
+        if self.tokenize:
+            return 256
+    @property
     def init_defaults(self):
         return {
             "permute": None,
@@ -89,7 +93,7 @@ class CIFAR10(ImageResolutionSequenceDataset):
             assert not self.tokenize
             return 3
 
-    def setup(self):
+    def setup(self, data_dir):
         img_size = 32
         if self.rescale:
             img_size //= self.rescale
@@ -184,14 +188,13 @@ class CIFAR10(ImageResolutionSequenceDataset):
 
         transform_train = torchvision.transforms.Compose(transforms_train)
         transform_eval = torchvision.transforms.Compose(transforms_eval)
-        self.dataset_train = torchvision.datasets.CIFAR10(
-            f"{default_data_path}/{self._name_}",
+        self.dataset_train = torchvision.datasets.CIFAR10(data_dir,
             train=True,
-            download=True,
+            download=False,
             transform=transform_train,
         )
         self.dataset_test = torchvision.datasets.CIFAR10(
-            f"{default_data_path}/{self._name_}", train=False, transform=transform_eval
+            data_dir, train=False, transform=transform_eval
         )
 
         if self.rescale:

@@ -11,7 +11,10 @@ import torchaudio.functional as TF
 import torchvision
 from einops import rearrange
 from einops.layers.torch import Rearrange
-from src.utils import is_list, permutations
+#from s4_fork.src.utils import is_list#, permutations
+from typing import Sequence
+def is_list(x):
+    return isinstance(x, Sequence) and not isinstance(x, str)
 from torch.nn import functional as F
 
 def deprecated(cls_or_func):

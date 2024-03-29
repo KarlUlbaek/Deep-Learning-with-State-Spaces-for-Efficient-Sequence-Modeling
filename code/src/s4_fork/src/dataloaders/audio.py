@@ -9,7 +9,7 @@ import torchaudio
 from torch import nn
 from torch.nn import functional as F
 
-from src.dataloaders.base import default_data_path, SequenceDataset, deprecated
+from s4_fork.src.dataloaders.base import default_data_path, SequenceDataset, deprecated
 
 
 def minmax_scale(tensor, range_min=0, range_max=1):

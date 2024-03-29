@@ -19,7 +19,7 @@ from collections import OrderedDict
 
 import torch
 
-import src.utils as utils
+import s4_fork.src.utils as utils
 
 
 class Vocab(object):

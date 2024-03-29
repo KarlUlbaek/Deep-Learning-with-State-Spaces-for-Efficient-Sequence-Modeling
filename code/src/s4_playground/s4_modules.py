@@ -199,6 +199,7 @@ class s4ClassicModule(nn.Module):
       #x = rearrange(hidden_states, "b d l -> b l d")
       x = self.s4fft(hidden_states)
 
+
       x = self.dropout(x)
 
       x = self.activation(x)
@@ -348,7 +349,7 @@ class S4ClassicModel(nn.Module):
       self.d_model, self.d_state, self.n_layer, self.dropout, self.s4 = d_model, d_state, n_layer, dropout, s4["mode"]
       self.d_input, self.d_output, self.vocab_size = d_input, d_output, vocab_size
       self.prenorm = prenorm
-      if vocab_size:
+      if vocab_size is not None:
          self.encoder = nn.Embedding(vocab_size, d_model)
       else:
          self.encoder = nn.Linear(d_input, d_model)

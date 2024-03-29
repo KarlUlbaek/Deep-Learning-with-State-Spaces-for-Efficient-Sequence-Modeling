@@ -4,9 +4,9 @@ import numpy as np
 import torch
 import torchvision
 from einops.layers.torch import Rearrange
-from src.utils import permutations
+from s4_fork.src.utils import permutations
 
-from src.dataloaders.base import SequenceDataset
+from s4_fork.src.dataloaders.base import SequenceDataset
 
 
 class Copying(SequenceDataset):

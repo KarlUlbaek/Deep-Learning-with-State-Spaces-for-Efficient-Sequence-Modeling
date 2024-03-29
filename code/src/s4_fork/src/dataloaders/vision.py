@@ -7,7 +7,7 @@ from torch import nn
 from torch.nn import functional as F
 import torchvision
 
-from src.dataloaders.base import default_data_path, SequenceDataset
+from s4_fork.src.dataloaders.base import default_data_path, SequenceDataset
 
 class CIFAR100(SequenceDataset):
     _name_ = "cifar100"

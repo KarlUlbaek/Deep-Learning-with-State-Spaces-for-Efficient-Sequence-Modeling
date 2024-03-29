@@ -26,14 +26,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-from src.utils import distributed
-import src.utils.train
-log = src.utils.train.get_logger(__name__)
+from s4_fork.src.utils import distributed
+import s4_fork.src.utils.train
+log = s4_fork.src.utils.train.get_logger(__name__)
 
 
-from src.dataloaders.base import SequenceDataset, default_data_path
-from src.dataloaders.utils.vocabulary import OpenAIVocab, Vocab
-import src.utils as utils
+from s4_fork.src.dataloaders.base import SequenceDataset, default_data_path
+from s4_fork.src.dataloaders.utils.vocabulary import OpenAIVocab, Vocab
+import s4_fork.src.utils as utils
 
 # TODO: create a package so we don't have to mess with sys.path?
 project_root = Path(__file__).parent.parent.absolute()
