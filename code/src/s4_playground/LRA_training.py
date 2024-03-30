@@ -231,7 +231,7 @@ if __name__ == "__main__":
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
    #datasets = [IMDBtoken]
-   datasets = [Pathfindertoken]
+   datasets = [Pathfindercont]
 
    n_epochs = 50
    b = 64
