@@ -120,7 +120,7 @@ class MambaModel(nn.Module):
         super().__init__()
         self.residual_in_fp32 = residual_in_fp32
         self.classification = classification
-        self.d_model, self.d_state, self.n_layer, dropout = d_model, d_state, n_layer, dropout
+        self.d_model, self.d_state, self.n_layer, self.dropout = d_model, d_state, n_layer, dropout
         self.d_input, self.d_output, self.vocab_size= d_input, d_output, vocab_size
         self.s4 = "s6" if s4 is None else s4["mode"]
 

@@ -178,7 +178,7 @@ if __name__ == "__main__":
    n_layer = 6
    d_model = 116
    d_state = 16
-   dropout = 0.0
+   dropout = 0.05
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast)
 
@@ -199,7 +199,7 @@ if __name__ == "__main__":
                         d_state=d_state, dropout=dropout, s4={"mode": "diag", "hippo_init": "legs"},
                         layernorm=layernorm, prenorm=prenorm)
 
-   Models = [s4dClassic, s4Classic, s6Mamba, s4Mamba, s4dMamba]
+   Models = [s6Mamba, s4Mamba, s4dMamba, s4dClassic, s4Classic]
 
 
    from lra import IMDB, PathFinder
@@ -230,10 +230,10 @@ if __name__ == "__main__":
 
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [Pathfindertoken, Pathfindercont]
-   datasets = [CIFAR10cont]#, Pathfindercont]
+   #datasets = [IMDBtoken]
+   datasets = [Pathfindertoken]
 
-   n_epochs = 1
+   n_epochs = 50
    b = 64
    classification = True
    num_workers = 4
@@ -244,7 +244,7 @@ if __name__ == "__main__":
 
    test_throughput = True
    run_test_run = True
-   wandb_logging = False
+   wandb_logging = True
 
 
    test_modes = [True, False] if run_test_run else [False]
@@ -290,9 +290,10 @@ if __name__ == "__main__":
             if test_mode or not wandb_logging:
                wandb_run = None
             else:
-               wandb_run = wandb.init(project=d_name, config={"model":m_name, "data":d_name, "lr":lr, "b": b,
-                                                                 "n_layer":model.n_layer, "d_state":model.d_state,
-                                                                 "d_model":model.d_model, "n_params": n_params})
+               wandb_run = wandb.init(project=d_name+"LRlow", name=m_name,
+                                      config={"model":m_name, "data":d_name, "lr":lr, "b": b,
+                                      "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
+                                      "d_model":model.d_model, "n_params": n_params})
 
             wandb_run = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
                                 criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
