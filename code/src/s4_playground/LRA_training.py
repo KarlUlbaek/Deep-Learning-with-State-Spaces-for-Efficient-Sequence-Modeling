@@ -7,6 +7,7 @@ from einops import rearrange
 from torch.nn import CrossEntropyLoss
 import sys, os
 sys.path.append(os.getcwd())
+print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",os.getcwd())
 
 def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_object):
    info_dict = {}
@@ -27,6 +28,7 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
          loss.backward()
          optimizer.step()
          optimizer.zero_grad()
+         loss = loss.detach()
 
          correct += torch.sum((torch.argmax(pred, dim=-1) == y).to(float))
          tot += y.shape[0]
@@ -114,9 +116,9 @@ if __name__ == "__main__":
 
 
    n_layer = 4
-   d_model = 86
+   d_model = 150
    d_state = 16
-   dropout = 0.1
+   dropout = 0.0
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast)
 
@@ -127,7 +129,7 @@ if __name__ == "__main__":
                       fused_add_norm=fast, rms_norm=fast, s4={"mode": "diag", "hippo_init": "legs"})
 
    d_state = 64
-   d_model = 128
+   d_model = 220
    layernorm = True # = True means layernorm and not RMS
    prenorm = False # =
    s4Classic  = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
@@ -186,11 +188,17 @@ if __name__ == "__main__":
 
       print(f"far/back mem GB: {mem1/1e9:.1f}, {mem2/1e9:.1f}")
       print(f"far/back speed b/s: {1/t1:.1f}, {1/t2:.1f}")
+      model = model.to("cpu")
 
 
 
 
-   Models = [s4Classic, s4dClassic, s6Mamba, s4Mamba, s4dMamba]
+   #Models = [s6Mamba, s4dClassic, s4Classic, s4Mamba, s4dMamba]
+   
+   
+   #Models = [s6Mamba, s4Mamba, s4dMamba]
+   Models = [s4dClassic, s4Classic, s6Mamba, s4Mamba, s4dMamba]
+   #Models = [s4dClassic]
 
 
    from misc import setup_optimizer
@@ -217,31 +225,35 @@ if __name__ == "__main__":
    IMDBtoken = deepcopy(data)
 
    data = PathFinder("pathfinder")
-   data.setup("../data")#.split_train_val(val_split=0.1)
+   data.setup("../../data")#.split_train_val(val_split=0.1)
    Pathfindercont = deepcopy(data)
    data.tokenize = True
-   data.setup("../data")#.split_train_val(val_split=0.1)
+   data.setup("../../data")#.split_train_val(val_split=0.1)
    Pathfindertoken = deepcopy(data)
 
-   datasets = [IMDBtoken, CIFAR10token, Pathfindertoken, CIFAR10cont, Pathfindercont]
-   #datasets = [IMDBtoken, Pathfindercont, Pathfindertoken]
+   #datasets = [IMDBtoken]#, CIFAR10token, Pathfindertoken, CIFAR10cont, Pathfindercont]
+   #datasets = [CIFAR10token, CIFAR10cont]
+   #datasets = [IMDBtoken]#[CIFAR10cont, CIFAR10token]#, Pathfindercont]
 
+   datasets = [CIFAR10token]
 
 
    n_epochs = 30
    b = 64
    classification = True
-   num_workers = 6
+   num_workers = 4
    d = "cuda"
-   lr = 3e-3
+   lr = 1e-4
    lr_scale = 0.1
    criterion = CrossEntropyLoss()
    test_throughput = True
 
-   run_test_run = True
+   run_test_run = False
    #wandb.login(key="b797f78f8b0f6b430d646e95a505e747eef4315c")
-   NOT_wandb_logging = True
+   NOT_wandb_logging = False
    test_modes = [True, False] if run_test_run else [False]
+   print("datasets:", datasets)
+   print("\nmodels:", Models)
    for test_mode in test_modes:
       for dataset in datasets:
          train_loader = dataset.train_dataloader(batch_size=b, num_workers=num_workers, shuffle=True)
@@ -274,13 +286,13 @@ if __name__ == "__main__":
             model = Model(d_input=d_input, d_output=d_output, vocab_size=vocab_size, classification=classification)
             m_name, n_params = print_model_stats(model)
             model = model.to(d)
-            if test_throughput: model_throughput(model, model.vocab_size, d_input=d_input, b=b, L=L)
+            if test_throughput: model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
             optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs)
 
             if test_mode or NOT_wandb_logging:
                wandb_object = None
             else:
-               wandb_object = wandb.init(project="LRA2", config={"model":m_name, "data":d_name, "lr":lr, "b": b,
+               wandb_object = wandb.init(project="LRA7", config={"model":m_name, "data":d_name, "lr":lr, "b": b,
                                                                  "n_layer":model.n_layer, "d_state":model.d_state,
                                                                  "d_model":model.d_model, "n_params": n_params})
 
