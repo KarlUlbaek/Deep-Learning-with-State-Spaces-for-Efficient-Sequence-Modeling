@@ -7,9 +7,26 @@ from einops import rearrange
 from torch.nn import CrossEntropyLoss
 import sys, os
 sys.path.append(os.getcwd())
-print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",os.getcwd())
+import time
 
-def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_object):
+
+ROOT_data = "../data/cifar10/"
+class Cifar10seq(Dataset):
+   def __init__(self, train=True, d="cpu"):
+      data = torchvision.datasets.CIFAR10(root=ROOT_data, train=train, download=False)
+      x = torch.from_numpy(data.data).to(torch.float)
+      x = rearrange(x, "a b c d -> a (b c) d")
+      x = x / x.max()
+      self.x = x.to(d)
+      self.y = torch.tensor(data.targets).to(d).to(torch.long)
+
+   def __len__(self):
+      return self.x.shape[0]
+
+   def __getitem__(self, idx):
+      return self.x[idx], self.y[idx]
+
+def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_run):
    info_dict = {}
    for epoch_idx in range(n_epochs):
       p_bar = tqdm.tqdm(enumerate(train_loader),
@@ -17,7 +34,7 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
                         desc="E: {}/{}".format(epoch_idx+1, n_epochs),
                         unit="b")
       p_bar.set_postfix(info_dict)
-      correct, tot = 0, 0
+      correct, tot, tot_loss = 0, 0, 0
       model.train()
 
       for batch_idx, xy_ in p_bar:
@@ -28,12 +45,13 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
          loss.backward()
          optimizer.step()
          optimizer.zero_grad()
-         loss = loss.detach()
+
+         tot_loss += loss.item()
+         info_dict["loss"] = tot_loss / (batch_idx + 1)
 
          correct += torch.sum((torch.argmax(pred, dim=-1) == y).to(float))
          tot += y.shape[0]
          info_dict["train acc"] = (correct / tot).item()
-         info_dict["loss"] = loss.item()
          p_bar.set_postfix(info_dict)
 
          if test_mode and batch_idx == 1: break
@@ -42,9 +60,11 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
       info_dict["lr"] = scheduler.get_last_lr()[0]
       scheduler.step()
 
-      if not test_mode and wandb_object is not None: wandb_object.log(info_dict)
+      if not test_mode and wandb_run is not None: wandb_run.log(info_dict)
       if test_mode and epoch_idx == 1: break
       #p_bar = tqdm.tqdm(enumerate(cifar_dataloader_train), unit="batch", total=len(cifar_dataloader_train))
+
+   return wandb_run
 
       #if batch_idx % 20 == 0:
 @torch.no_grad()
@@ -69,41 +89,81 @@ def eval(model, eval_loader, info_dict, test_mode):
 
 #
 # print(f"Epoch {epoch_dix} learning rate: {sched.get_last_lr()[0]}")
+def print_model_stats(model):
+   name = model.__class__.__name__ + " " + model.s4
+   n_layer, d_state, d_model = model.n_layer, model.d_state, model.d_model
+   trainable_params = sum([param.numel() for param in model.parameters() if param.requires_grad])
+   nontrainable_params = sum([param.numel() for param in model.parameters() if not param.requires_grad])
+   print("####################################################################################")
+   print(f"{name}: trainable {trainable_params/1e6:.3f}m, \n"
+         f"n_layers: {n_layer}, d_model: {d_model}, d_state: {d_state}")
+   if nontrainable_params != 0: print("nontrainable params!!!!!!!!!1", nontrainable_params)
+   #print("####################################################################################")
+   return name, trainable_params
 
+# assumes tokesn atm
+def model_throughput(model, vocab_size, d_input, b=64, L=1000, reps=10):
+   opt = AdamW(model.parameters(), lr=1e-9)
+   if vocab_size is not None:
+      batch = (torch.rand((b, L))*(vocab_size-1)).to(torch.long).abs()
+   else:
+      batch = torch.randn((b, L, d_input))
+
+   batch = batch.to("cuda")
+   #warm up
+   model = model.eval()
+   for _ in range(3):
+      model(batch)
+   torch.cuda.synchronize()
+
+   # farward
+   torch.cuda.reset_peak_memory_stats()
+   t0 = time.perf_counter()
+   for _ in range(reps):
+      model(batch)
+   torch.cuda.synchronize()
+   t1 = (time.perf_counter() - t0) / reps
+   mem1 = torch.cuda.max_memory_allocated()
+
+   # backward
+   model = model.train()
+   torch.cuda.reset_peak_memory_stats()
+   t0 = time.perf_counter()
+   for _ in range(int(reps)):
+      (model(batch)).sum().backward()
+      opt.step()
+      opt.zero_grad()
+   torch.cuda.synchronize()
+   t2 = (time.perf_counter() - t0) / reps
+   mem2 = torch.cuda.max_memory_allocated()
+
+   print(f"far/back mem GB: {mem1/1e9:.1f}, {mem2/1e9:.1f}")
+   print(f"far/back speed b/s: {1/t1:.1f}, {1/t2:.1f}")
+   model = model.to("cpu")
+
+def data_throughput(data_loader, name, warmup=10, actualrun=50):
+   for i, _ in enumerate(data_loader):
+      if i == warmup:
+         break
+
+   t0 = time.perf_counter()
+   for i, _ in enumerate(data_loader):
+      if i == actualrun:
+         break
+   t1 = actualrun / (time.perf_counter() - t0)
+
+   print(f"{name} batch per sec: {t1:.1f}" )
 
 
 if __name__ == "__main__":
    import os
    import sys
    import wandb
+   from misc import setup_optimizer
+   from copy import deepcopy
+   from lra_benchmarks_fork.lra_datasets import LRATensor
+
    sys.path.append(os.getcwd())
-
-   # todo
-   # infer model specs
-   # print model specs
-   # make all training configs
-   # make quick training run of all configs
-   # wandb
-   # clean up
-
-   ROOT_data = "../data/cifar10/"
-   class Cifar10seq(Dataset):
-      def __init__(self, train=True, d="cpu"):
-         data = torchvision.datasets.CIFAR10(root=ROOT_data, train=train, download=False)
-         x = torch.from_numpy(data.data).to(torch.float)
-         x = rearrange(x, "a b c d -> a (b c) d")
-         x = x / x.max()
-         self.x = x.to(d)
-         self.y = torch.tensor(data.targets).to(d).to(torch.long)
-
-      def __len__(self):
-         return self.x.shape[0]
-
-      def __getitem__(self, idx):
-         return self.x[idx], self.y[idx]
-
-   #d = Cifar10seq()
-
 
    if torch.cuda.get_device_name(0) == "NVIDIA GeForce GTX 1080 Ti":
       fast = False
@@ -115,8 +175,8 @@ if __name__ == "__main__":
    from functools import partial
 
 
-   n_layer = 4
-   d_model = 150
+   n_layer = 6
+   d_model = 116
    d_state = 16
    dropout = 0.0
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
@@ -129,7 +189,7 @@ if __name__ == "__main__":
                       fused_add_norm=fast, rms_norm=fast, s4={"mode": "diag", "hippo_init": "legs"})
 
    d_state = 64
-   d_model = 220
+   d_model = 170
    layernorm = True # = True means layernorm and not RMS
    prenorm = False # =
    s4Classic  = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
@@ -139,76 +199,11 @@ if __name__ == "__main__":
                         d_state=d_state, dropout=dropout, s4={"mode": "diag", "hippo_init": "legs"},
                         layernorm=layernorm, prenorm=prenorm)
 
-   def print_model_stats(model):
-      name = model.__class__.__name__ + " " + model.s4
-      n_layer, d_state, d_model = model.n_layer, model.d_state, model.d_model
-      trainable_params = sum([param.numel() for param in model.parameters() if param.requires_grad])
-      nontrainable_params = sum([param.numel() for param in model.parameters() if not param.requires_grad])
-      print("####################################################################################")
-      print(f"{name}: trainable {trainable_params/1e6:.3f}m, \n"
-            f"n_layers: {n_layer}, d_model: {d_model}, d_state: {d_state}")
-      if nontrainable_params != 0: print("nontrainable params!!!!!!!!!1", nontrainable_params)
-      #print("####################################################################################")
-      return name, trainable_params
-
-   # assumes tokesn atm
-   def model_throughput(model, vocab_size, d_input, b=64, L=1000, reps=10):
-      import time
-      opt = AdamW(model.parameters(), lr=1e-9)
-      if vocab_size is not None:
-         batch = (torch.rand((b, L))*(vocab_size-1)).to(torch.long).abs()
-      else:
-         batch = torch.randn((b, L, d_input))
-
-      batch = batch.to("cuda")
-      #warm up
-      for _ in range(3):
-         model(batch)
-      torch.cuda.synchronize()
-
-      # farward
-      torch.cuda.reset_peak_memory_stats()
-      t0 = time.perf_counter()
-      for _ in range(reps):
-         model(batch)
-      torch.cuda.synchronize()
-      t1 = (time.perf_counter() - t0) / reps
-      mem1 = torch.cuda.max_memory_allocated()
-
-      # backward
-      torch.cuda.reset_peak_memory_stats()
-      t0 = time.perf_counter()
-      for _ in range(int(reps)):
-         (model(batch)).sum().backward()
-         opt.step()
-         opt.zero_grad()
-      torch.cuda.synchronize()
-      t2 = (time.perf_counter() - t0) / reps
-      mem2 = torch.cuda.max_memory_allocated()
-
-      print(f"far/back mem GB: {mem1/1e9:.1f}, {mem2/1e9:.1f}")
-      print(f"far/back speed b/s: {1/t1:.1f}, {1/t2:.1f}")
-      model = model.to("cpu")
-
-
-
-
-   #Models = [s6Mamba, s4dClassic, s4Classic, s4Mamba, s4dMamba]
-   
-   
-   #Models = [s6Mamba, s4Mamba, s4dMamba]
    Models = [s4dClassic, s4Classic, s6Mamba, s4Mamba, s4dMamba]
-   #Models = [s4dClassic]
 
 
-   from misc import setup_optimizer
-
-   from lra_benchmarks_fork.lra_datasets import LRATensor
-   #datasetnames = ["Cifar10DatasetToken", "ListOpsDataset", "ImdbDataset"]
-   #datasetnames = ["Cifar10DatasetCont", "Cifar10DatasetToken", "ImdbDataset"]
    from lra import IMDB, PathFinder
    from s4_fork.src.dataloaders.basic import CIFAR10
-   from copy import deepcopy
 
    cwd = os.getcwd()
 
@@ -217,28 +212,28 @@ if __name__ == "__main__":
    CIFAR10cont = deepcopy(data)
    data.tokenize = True
    data.grayscale = True
-   data.setup("../data/cifar10")#split_train_val(val_split=0.1)
+   data.setup("../data/cifar10")
    CIFAR10token = deepcopy(data)
 
    data = IMDB("imdb")
-   data.setup("../data")#split_train_val(val_split=0.1)
+   data.setup("../data")
    IMDBtoken = deepcopy(data)
 
    data = PathFinder("pathfinder")
-   data.setup("../../data")#.split_train_val(val_split=0.1)
+   data.setup("../../data")
+   #data.setup("../data")
    Pathfindercont = deepcopy(data)
    data.tokenize = True
-   data.setup("../../data")#.split_train_val(val_split=0.1)
+   data.setup("../../data")
+   #data.setup("../data")
    Pathfindertoken = deepcopy(data)
 
-   #datasets = [IMDBtoken]#, CIFAR10token, Pathfindertoken, CIFAR10cont, Pathfindercont]
-   #datasets = [CIFAR10token, CIFAR10cont]
-   #datasets = [IMDBtoken]#[CIFAR10cont, CIFAR10token]#, Pathfindercont]
+   #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [CIFAR10token]
+   datasets = [Pathfindertoken, Pathfindercont]
+   datasets = [CIFAR10cont]#, Pathfindercont]
 
-
-   n_epochs = 30
+   n_epochs = 1
    b = 64
    classification = True
    num_workers = 4
@@ -246,14 +241,15 @@ if __name__ == "__main__":
    lr = 1e-4
    lr_scale = 0.1
    criterion = CrossEntropyLoss()
-   test_throughput = True
 
-   run_test_run = False
-   #wandb.login(key="b797f78f8b0f6b430d646e95a505e747eef4315c")
-   NOT_wandb_logging = False
+   test_throughput = True
+   run_test_run = True
+   wandb_logging = False
+
+
    test_modes = [True, False] if run_test_run else [False]
-   print("datasets:", datasets)
-   print("\nmodels:", Models)
+   print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
+   print("models:", [model.func.__name__ for model in Models])
    for test_mode in test_modes:
       for dataset in datasets:
          train_loader = dataset.train_dataloader(batch_size=b, num_workers=num_workers, shuffle=True)
@@ -263,9 +259,8 @@ if __name__ == "__main__":
          except TypeError as e:
             eval_loader = dataset.test_dataloader(batch_size=b, num_workers=num_workers)
 
-         #eval_loader = DataLoader(dataset.dataset_test, batch_size=b, num_workers=0)
-         if eval_loader is None:
-            print("CAOS")
+         assert eval_loader is not None, "EVAL LOADER NONE. CAOS"
+         assert train_loader is not None, "TRAIN LOADER NONE. CAOS"
 
          xy_ = next(iter(train_loader))
          x, y = xy_[0], xy_[1]
@@ -286,19 +281,24 @@ if __name__ == "__main__":
             model = Model(d_input=d_input, d_output=d_output, vocab_size=vocab_size, classification=classification)
             m_name, n_params = print_model_stats(model)
             model = model.to(d)
-            if test_throughput: model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
             optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs)
 
-            if test_mode or NOT_wandb_logging:
-               wandb_object = None
+            if test_throughput:
+               data_throughput(train_loader, d_name)
+               model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
+
+            if test_mode or not wandb_logging:
+               wandb_run = None
             else:
-               wandb_object = wandb.init(project="LRA7", config={"model":m_name, "data":d_name, "lr":lr, "b": b,
+               wandb_run = wandb.init(project=d_name, config={"model":m_name, "data":d_name, "lr":lr, "b": b,
                                                                  "n_layer":model.n_layer, "d_state":model.d_state,
                                                                  "d_model":model.d_model, "n_params": n_params})
 
-            trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
-                    criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
-                    wandb_object=wandb_object)
+            wandb_run = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
+                                criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
+                                wandb_run=wandb_run)
+
+            if wandb_run is not None: wandb_run.finish()
             model = model.to("cpu")
 
 

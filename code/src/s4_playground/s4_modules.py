@@ -53,8 +53,8 @@ class FFTConvLean(nn.Module):
       self.BDL_shape = transposed
 
       self.D = nn.Parameter(torch.ones((channels, self.d_model, 1), dtype=torch.float))
-      self.D._optim = True  # will get lower learning rate
-      self.D._no_weight_decay = True  # will not get weight decaay
+      self.D._optim = False  # will get lower learning rate
+      self.D._no_weight_decay = False  # will not get weight decaay
 
       kernel_cls = kernel_registry[mode]
       self.kernel = kernel_cls(
@@ -278,8 +278,8 @@ class s6ClassicModule(nn.Module):
 
       # D "skip" parameter
       self.D = nn.Parameter(torch.ones(self.d_model, device=device))  # Keep in fp32
-      self.D._optim = True
-      self.D._no_weight_decay = True
+      self.D._optim = False
+      self.D._no_weight_decay = False
 
 
       self.activation = nn.GELU()
