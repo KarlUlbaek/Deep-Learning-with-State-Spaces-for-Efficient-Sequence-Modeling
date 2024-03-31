@@ -104,7 +104,8 @@ class s4MambaModule(nn.Module):
       device=None,
       dtype=None,
       mode="dplr",
-      hippo_init ="legs"
+      hippo_init ="legs",
+      pos_emb = {}
    ):
       factory_kwargs = {"device": device, "dtype": dtype}
       super().__init__()
@@ -134,12 +135,10 @@ class s4MambaModule(nn.Module):
       self.dropout = nn.Dropout1d(p=dropout) if dropout > 0.0 else nn.Identity()
       self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
-      pos_emb= ""
-      self.use_pos_emb = bool(pos_emb)
-      if self.use_pos_emb:
-         print(f"using pos {pos_emb}")
-         self.pos_emb_layer = RotaryEmbeddingCustom(d_model=d_model, loc=pos_emb, BDL_shape=True)
-
+      # self.use_pos_emb = bool(pos_emb)
+      # if self.use_pos_emb:
+      #    print("using pos {}".format(pos_emb["loc"]))
+      #    self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_inner, **pos_emb, BDL_shape=True)
 
    def forward(self, hidden_states, inference_params=None):
       batch, seqlen, dim = hidden_states.shape
@@ -163,8 +162,8 @@ class s4MambaModule(nn.Module):
          activation=self.activation,
       )
 
-      if self.use_pos_emb:
-         x = self.pos_emb_layer(x, layer_idx=self.layer_idx)
+      # if self.use_pos_emb:
+      #    x = self.pos_emb_layer(x, layer_idx=self.layer_idx)
 
       x = self.s4fft(x)
       x = x * self.act(z)
@@ -345,7 +344,6 @@ class S4ClassicModel(nn.Module):
       d_output: int,
       classification=True,
       vocab_size = None, # implies a discrete input
-      pos_emb="",
       d_model=128,
       d_state=64,
       n_layer=4,
@@ -354,6 +352,7 @@ class S4ClassicModel(nn.Module):
       prenorm=False,
       layernorm=True,
       s4 = {"mode": "dplr", "hippo_init": "legs"},
+      pos_emb = {},
    ):
       super().__init__()
       self.d_model, self.d_state, self.n_layer, self.dropout, self.s4 = d_model, d_state, n_layer, dropout, s4["mode"]
@@ -382,8 +381,8 @@ class S4ClassicModel(nn.Module):
 
       self.use_pos_emb = bool(pos_emb)
       if self.use_pos_emb:
-         print(f"using pos {pos_emb}")
-         self.pos_emb_layer = RotaryEmbeddingCustom(d_model=d_model, loc=pos_emb, BDL_shape=True)
+         print("using pos {}".format(pos_emb["loc"]))
+         self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_model, **pos_emb, BDL_shape=True)
          
 
    def forward(self, x):

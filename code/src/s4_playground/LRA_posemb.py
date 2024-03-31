@@ -207,11 +207,11 @@ if __name__ == "__main__":
    d_model = 116
    d_state = 16
    dropout = 0.1
-   s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast)
-
-   s4Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast, s4={"mode": "dplr", "hippo_init": "legs"})
+   # s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+   #                   fused_add_norm=fast, rms_norm=fast)
+   #
+   # s4Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+   #                   fused_add_norm=fast, rms_norm=fast, s4={"mode": "dplr", "hippo_init": "legs"})
 
    s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                       fused_add_norm=fast, rms_norm=fast, s4={"mode": "diag", "hippo_init": "legs"})
@@ -220,9 +220,9 @@ if __name__ == "__main__":
    d_model = 170
    layernorm = True # = True means layernorm and not RMS
    prenorm = False # =
-   s4Classic  = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
-                        d_state=d_state, dropout=dropout, s4={"mode": "dplr", "hippo_init": "legs"},
-                        layernorm=layernorm, prenorm=prenorm)
+   # s4Classic  = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
+   #                      d_state=d_state, dropout=dropout, s4={"mode": "dplr", "hippo_init": "legs"},
+   #                      layernorm=layernorm, prenorm=prenorm)
    s4dClassic = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
                         d_state=d_state, dropout=dropout, s4={"mode": "diag", "hippo_init": "legs"},
                         layernorm=layernorm, prenorm=prenorm)
@@ -252,13 +252,13 @@ if __name__ == "__main__":
    # #data.setup("../data")
    # Pathfindertoken = deepcopy(data)
 
-   Models = [s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+   Models = [s4dClassic, s4dMamba]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [CIFAR10cont]
+   datasets = [CIFAR10token]
    #datasets = [Pathfindercont]
 
-   n_epochs = 50
+   n_epochs = 25
    b = 64
    classification = True
    num_workers = 0
@@ -266,14 +266,21 @@ if __name__ == "__main__":
    lr = 3e-3
    lr_scale = 0.1 # 0.1
    weight_decay = 0.01 # 0.01
-   pos_emb = {}
-   #{"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "BDL_shape": True}
-   #loc = ["all", "first", "everyother"]
+   pos_emb = {}#{"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "BDL_shape": True}
+   #loc must be ["all", "first", "everyother"]
    criterion = CrossEntropyLoss()
 
    test_throughput = True
    run_test_run = True
-   wandb_logging = False
+   wandb_logging = True
+
+   pos_embs = [{"loc": "first", "theta": 10, "seq_norm": 1024, "learned_freq": True},
+               {"loc": "first", "theta": 10, "seq_norm": 1024, "learned_freq": False},
+               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
+               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False},
+
+               {"loc": "first", "theta": 10_000, "seq_norm": None, "learned_freq": False},
+               {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False}]
 
 
    test_modes = [True, False] if run_test_run else [False]
@@ -304,35 +311,37 @@ if __name__ == "__main__":
          d_output = dataset.d_output
 
          for Model in Models:
-            succes = False # we rerun the model till it actually learns
-            while not succes:
-               d_name = dataset.__class__.__name__
-               d_name = (d_name+"token") if vocab_size is not None else (d_name+"cons")
-               print(f"\n Running on {d_name}")
-               model = Model(d_input=d_input, d_output=d_output, pos_emb=pos_emb, vocab_size=vocab_size, classification=classification)
-               m_name, n_params = print_model_stats(model)
-               model = model.to(d)
-               optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs, weight_decay=weight_decay)
-               #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
+            for pos_emb in pos_embs:
+               succes = False # we rerun the model till it actually learns
+               while not succes:
+                  d_name = dataset.__class__.__name__
+                  d_name = (d_name+"token") if vocab_size is not None else (d_name+"cons")
+                  print(f"\n Running on {d_name}")
+                  model = Model(d_input=d_input, d_output=d_output, pos_emb=pos_emb, vocab_size=vocab_size, classification=classification)
+                  m_name, n_params = print_model_stats(model)
+                  m_name += str(list(pos_emb.values()))
+                  model = model.to(d)
+                  optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs, weight_decay=weight_decay)
+                  #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
 
-               if test_throughput:
-                  data_throughput(train_loader, d_name)
-                  model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
+                  if test_throughput:
+                     data_throughput(train_loader, d_name)
+                     model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
 
-               if test_mode or not wandb_logging:
-                  wandb_run = None
-               else:
-                  print("Logging with wandb! Happens after 2. epoch!")
-                  wandb_run = partial(wandb.init, project=d_name+"test", name=m_name,
-                                      config={"model":m_name, "data":d_name, "lr":lr, "b": b, "weight_decay":weight_decay,
-                                              "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
-                                              "d_model":model.d_model, "n_params": n_params})
+                  if test_mode or not wandb_logging:
+                     wandb_run = None
+                  else:
+                     print("Logging with wandb! Happens after 2. epoch!")
+                     wandb_run = partial(wandb.init, project=d_name+"test", name=m_name,
+                                         config={"model":m_name, "data":d_name, "lr":lr, "b": b, "weight_decay":weight_decay,
+                                                 "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
+                                                 "d_model":model.d_model, "n_params": n_params})
 
-               succes = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
-                                criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
-                                wandb_run=wandb_run)
+                  succes = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
+                                   criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
+                                   wandb_run=wandb_run)
 
-               model = model.to("cpu")
+                  model = model.to("cpu")
 
 
 

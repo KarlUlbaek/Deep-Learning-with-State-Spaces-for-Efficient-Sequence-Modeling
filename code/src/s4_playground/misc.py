@@ -37,11 +37,11 @@ def setup_optimizer(model, opt=AdamW, Sched=CosSched, lr=1e-3, lr_scale = 0.1, w
 from s4_playground.rope_fork import RotaryEmbedding
 
 class RotaryEmbeddingCustom(torch.nn.Module):
-   def __init__(self, d_model , loc="all", BDL_shape=True, theta=10):
+   def __init__(self, d_model , loc="all", BDL_shape=True, theta=10, seq_norm=None, learned_freq=False):
       super().__init__()
 
-      self.pos_emb_layer = RotaryEmbedding(dim=d_model, theta=theta)
-      assert loc in ["all", "first", "everyother"]
+      self.pos_emb_layer = RotaryEmbedding(dim=d_model, theta=theta, seq_norm=seq_norm, learned_freq=learned_freq)
+      assert loc in ["all", "first", "everyother"], "los is {} of type {}".format(loc, type(loc))
       self.loc = loc
       self.BDL_shape = BDL_shape
 

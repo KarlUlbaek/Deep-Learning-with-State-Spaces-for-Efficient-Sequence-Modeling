@@ -45,6 +45,9 @@ def apply_rotary_emb(freqs, t, start_index = 0, scale = 1., seq_dim = -2):
 
     t_left, t, t_right = t[..., :start_index], t[..., start_index:end_index], t[..., end_index:]
     t = (t * freqs.cos() * scale) + (rotate_half(t) * freqs.sin() * scale)
+    # import matplotlib.pyplot as plt
+    # plt.plot(freqs.cos()[0,:].to("cpu").numpy())
+    # plt.show()
     return torch.cat((t_left, t, t_right), dim = -1)
 
 # learned rotation helpers
@@ -79,14 +82,15 @@ class RotaryEmbedding(Module):
         interpolate_factor = 1.,
         theta_rescale_factor = 1.,
         seq_before_head_dim = False,
-        cache_if_possible = True
+        cache_if_possible = True,
+        seq_norm = None
     ):
         super().__init__()
         # proposed by reddit user bloc97, to rescale rotary embeddings to longer sequence length without fine-tuning
         # has some connection to NTK literature
         # https://www.reddit.com/r/LocalLLaMA/comments/14lz7j5/ntkaware_scaled_rope_allows_llama_models_to_have/
 
-        theta *= theta_rescale_factor ** (dim / (dim - 2))
+        #theta *= theta_rescale_factor ** (dim / (dim - 2))
 
         self.freqs_for = freqs_for
 
@@ -104,7 +108,11 @@ class RotaryEmbedding(Module):
         self.tmp_store('cached_freqs', None)
         self.tmp_store('cached_scales', None)
 
+        if seq_norm is not None:
+            freqs *= (torch.pi/seq_norm)
+
         self.freqs = nn.Parameter(freqs, requires_grad = learned_freq)
+        self.freqs._optim = True # gets 0.1 times normal learning rate
 
         self.learned_freq = learned_freq
 
@@ -280,3 +288,11 @@ class RotaryEmbedding(Module):
             self.tmp_store('cached_freqs', freqs.detach())
 
         return freqs
+
+if __name__ == '__main__':
+    import torch
+    l = 1024*2
+    batch = torch.ones((1,l,2))
+    rot = RotaryEmbedding(dim=2, seq_norm=l)
+    both_rot = rot.rotate_queries_or_keys(batch)
+    print(both_rot[:,0,:], both_rot[:,-1,:])
