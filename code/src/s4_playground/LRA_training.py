@@ -225,16 +225,16 @@ if __name__ == "__main__":
    #data.setup("../data")
    Pathfindertoken = deepcopy(data)
 
-   Models = [s4dClassic, s6Mamba, s4Mamba, s4dMamba, s4Classic]
+   Models = [s4Mamba, s4dMamba, s4Classic, s4dClassic]#, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [Pathfindercont]
+   datasets = [Pathfindertoken]
    #datasets = [Pathfindercont]
 
-   n_epochs = 100
+   n_epochs = 50
    b = 64
    classification = True
-   num_workers = 0
+   num_workers = 2
    d = "cuda"
    lr = 1e-3
    lr_scale = 0.1 # 0.1
@@ -281,7 +281,7 @@ if __name__ == "__main__":
             m_name, n_params = print_model_stats(model)
             model = model.to(d)
             optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs, weight_decay=weight_decay)
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
+            #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
 
             if test_throughput:
                data_throughput(train_loader, d_name)

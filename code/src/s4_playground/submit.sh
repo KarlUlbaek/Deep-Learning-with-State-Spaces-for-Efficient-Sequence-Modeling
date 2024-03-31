@@ -2,13 +2,9 @@
 ### General options
 ### –- specify queue --
 #BSUB -q gpua100
-### -- set the job Name --
-### GPU MEM
-#BSUB -R "select[gpu32gb]"
-###BSUB NAME!
-#BSUB -J PaCoAll
+#BSUB -J PaCons
 ### -- ask for number of cores (default: 1) --
-#BSUB -n 4
+#BSUB -n 6
 ### -- Select the resources: 1 gpu in exclusive process mode --
 #BSUB -gpu "num=1:mode=exclusive_process"
 ### -- set walltime limit: hh:mm --  maximum 24 hours for GPU-queues right now
@@ -18,7 +14,6 @@
 ### -- set the email address --
 # please uncomment the following line and put in your e-mail address,
 # if you want to receive e-mail notifications on a non-default address
-##BSUB -u your_email_address
 ### -- send notification at start --
 #BSUB -B
 ### -- send notification at completion--
@@ -38,7 +33,7 @@ pwd
 
 source ../12venv/bin/activate
 
-python s4_playground/LRA_training.py
+python s4_playground/LRA_training2.py
 
 
 
