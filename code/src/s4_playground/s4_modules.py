@@ -423,7 +423,7 @@ class S4ClassicModel(nn.Module):
       return hidden_states
 
 if __name__ == "__main__":
-   from LRA_training import model_throughput
+   from LRA_baseline import model_throughput
    d_input = 64
    d_model = 128*2
    d_state = 64

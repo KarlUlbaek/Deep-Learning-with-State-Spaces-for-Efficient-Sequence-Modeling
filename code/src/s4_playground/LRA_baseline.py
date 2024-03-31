@@ -323,7 +323,7 @@ if __name__ == "__main__":
                   wandb_run = None
                else:
                   print("Logging with wandb! Happens after 2. epoch!")
-                  wandb_run = partial(wandb.init, project=d_name+"test", name=m_name,
+                  wandb_run = partial(wandb.init, project=d_name, name=m_name,
                                       config={"model":m_name, "data":d_name, "lr":lr, "b": b, "weight_decay":weight_decay,
                                               "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
                                               "d_model":model.d_model, "n_params": n_params})

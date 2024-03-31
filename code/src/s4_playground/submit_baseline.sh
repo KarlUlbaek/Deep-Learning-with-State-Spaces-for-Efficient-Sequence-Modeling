@@ -33,7 +33,7 @@ pwd
 
 source ../12venv/bin/activate
 
-python s4_playground/LRA_training2.py
+python s4_playground/LRA_baseline.py
 
 
 
