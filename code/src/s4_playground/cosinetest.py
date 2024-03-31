@@ -18,3 +18,14 @@ plt.plot(l)
 plt.show()
 
 
+def f(i, d, theta):
+   return theta ** (-2 * (i) / d)
+
+
+d = 512
+theta = 10
+data = [f(i,d, theta) for i in range(int(d/2))]
+plt.plot(data)
+plt.show()
+
+

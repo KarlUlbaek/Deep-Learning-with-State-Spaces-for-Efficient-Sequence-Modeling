@@ -13,8 +13,6 @@ import torchtext
 import torchvision
 from einops.layers.torch import Rearrange, Reduce
 from PIL import Image  # Only used for Pathfinder
-import sys
-print(sys.path)
 
 from datasets import DatasetDict#, Value, load_dataset
 

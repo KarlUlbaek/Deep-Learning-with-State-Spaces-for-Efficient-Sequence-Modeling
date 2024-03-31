@@ -16,6 +16,7 @@ from mamba_ssm.utils.generation import GenerationMixin
 from mamba_ssm.utils.hf import load_config_hf, load_state_dict_hf
 import os
 from s4_playground.s4_modules import s4MambaModule
+from s4_playground.misc import RotaryEmbeddingCustom
 
 try:
     from mamba_ssm.ops.triton.layernorm import RMSNorm, layer_norm_fn, rms_norm_fn
@@ -102,6 +103,7 @@ class MambaModel(nn.Module):
         d_output: int,
         classification=True,
         vocab_size = None, # corrosponds to discrete input
+        pos_emb="",
         d_model= 128,
         d_state= 16,
         n_layer= 4,
@@ -131,6 +133,13 @@ class MambaModel(nn.Module):
 
         self.decoder = nn.Linear(d_model, d_output)
 
+        self.use_pos_emb = bool(pos_emb)
+        # if self.use_pos_emb:
+        #     print(f"using pos {pos_emb}")
+        #     self.pos_emb_layer = RotaryEmbeddingCustom(d_model=d_model, loc=pos_emb, BDL_shape=False)
+        #
+        # if self.use_pos_emb:
+        #     hidden_states = self.pos_emb_layer(hidden_states, layer_idx=layer_idx)
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:
         # Add -> LN -> Attn / MLP / Mixer, returning both the residual branch (output of Add) and
@@ -181,10 +190,9 @@ class MambaModel(nn.Module):
     def forward(self, input_ids, inference_params=None):
         hidden_states = self.encoder(input_ids)
         residual = None
-        for layer in self.layers:
-            hidden_states, residual = layer(
-                hidden_states, residual, inference_params=inference_params
-            )
+        for layer_idx, layer in enumerate(self.layers):
+            hidden_states, residual = layer(hidden_states, residual, inference_params=inference_params)
+
         if not self.fused_add_norm:
             residual = (hidden_states + residual) if residual is not None else hidden_states
             hidden_states = self.norm_f(residual.to(dtype=self.norm_f.weight.dtype))

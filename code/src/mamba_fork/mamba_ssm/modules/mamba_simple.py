@@ -138,8 +138,8 @@ class S6MambaModule(nn.Module):
 
         # D "skip" parameter
         self.D = nn.Parameter(torch.ones(self.d_inner, device=device))  # Keep in fp32
-        self.D._optim = False
-        self.D._no_weight_decay = False
+        # self.D._optim = False
+        # self.D._no_weight_decay = False
 
         self.dropout = nn.Dropout1d(p=dropout) if dropout > 0.0 else nn.Identity()
         self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)

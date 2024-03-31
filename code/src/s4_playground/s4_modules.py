@@ -9,6 +9,7 @@ import sys
 import os
 sys.path.append(os.getcwd())
 
+from s4_playground.misc import RotaryEmbeddingCustom
 from mamba_ssm.ops.triton.layernorm import RMSNorm
 from mamba_fork.mamba_ssm.modules.mamba_simple import S6MambaModule
 
@@ -53,8 +54,8 @@ class FFTConvLean(nn.Module):
       self.BDL_shape = transposed
 
       self.D = nn.Parameter(torch.ones((channels, self.d_model, 1), dtype=torch.float))
-      self.D._optim = False  # will get lower learning rate
-      self.D._no_weight_decay = False  # will not get weight decaay
+      #self.D._optim = False  # will get lower learning rate
+      #self.D._no_weight_decay = False  # will not get weight decaay
 
       kernel_cls = kernel_registry[mode]
       self.kernel = kernel_cls(
@@ -133,6 +134,12 @@ class s4MambaModule(nn.Module):
       self.dropout = nn.Dropout1d(p=dropout) if dropout > 0.0 else nn.Identity()
       self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
+      pos_emb= ""
+      self.use_pos_emb = bool(pos_emb)
+      if self.use_pos_emb:
+         print(f"using pos {pos_emb}")
+         self.pos_emb_layer = RotaryEmbeddingCustom(d_model=d_model, loc=pos_emb, BDL_shape=True)
+
 
    def forward(self, hidden_states, inference_params=None):
       batch, seqlen, dim = hidden_states.shape
@@ -156,8 +163,10 @@ class s4MambaModule(nn.Module):
          activation=self.activation,
       )
 
-      x = self.s4fft(x)
+      if self.use_pos_emb:
+         x = self.pos_emb_layer(x, layer_idx=self.layer_idx)
 
+      x = self.s4fft(x)
       x = x * self.act(z)
 
       x = self.dropout(x)
@@ -278,8 +287,8 @@ class s6ClassicModule(nn.Module):
 
       # D "skip" parameter
       self.D = nn.Parameter(torch.ones(self.d_model, device=device))  # Keep in fp32
-      self.D._optim = False
-      self.D._no_weight_decay = False
+      # self.D._optim = False
+      # self.D._no_weight_decay = False
 
 
       self.activation = nn.GELU()
@@ -336,6 +345,7 @@ class S4ClassicModel(nn.Module):
       d_output: int,
       classification=True,
       vocab_size = None, # implies a discrete input
+      pos_emb="",
       d_model=128,
       d_state=64,
       n_layer=4,
@@ -370,6 +380,12 @@ class S4ClassicModel(nn.Module):
       # Linear decoder
       self.decoder = nn.Linear(d_model, d_output)
 
+      self.use_pos_emb = bool(pos_emb)
+      if self.use_pos_emb:
+         print(f"using pos {pos_emb}")
+         self.pos_emb_layer = RotaryEmbeddingCustom(d_model=d_model, loc=pos_emb, BDL_shape=True)
+         
+
    def forward(self, x):
       """
       Input x is shape (B, L, d_input)
@@ -378,7 +394,7 @@ class S4ClassicModel(nn.Module):
 
       #print(self.NotMambaShape)
       if self.NotMambaShape: x = x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
-      for layer, norm, dropout in zip(self.layers, self.norms, self.dropouts):
+      for layer_idx, (layer, norm, dropout) in enumerate(zip(self.layers, self.norms, self.dropouts)):
          # Each iteration of this loop will map (B, d_model, L) -> (B, d_model, L)
 
          residuals = x
@@ -386,7 +402,9 @@ class S4ClassicModel(nn.Module):
             if self.NotMambaShape: norm(residuals.transpose(-1, -2)).transpose(-1, -2)
             else:                  norm(residuals)
 
-         # Apply S4 block: we ignore the state input and output
+         if self.use_pos_emb:
+            residuals = self.pos_emb_layer(residuals, layer_idx=layer_idx)
+
          residuals = layer(residuals)
          residuals = dropout(residuals)
          x = x + residuals
@@ -406,33 +424,44 @@ class S4ClassicModel(nn.Module):
       return hidden_states
 
 if __name__ == "__main__":
+   from LRA_training import model_throughput
    d_input = 64
-   d_model = 128
+   d_model = 128*2
    d_state = 64
-   L = 512
-   B = 16
+   L = 512*2
+   B = 64
    d = "cuda"
-
-   m = S6MambaModule(64, 64)
-
-
+   d_output = 10
 
    s4model = S4ClassicModel(
-                     d_input = d_input,
-                     d_state = d_state,
-                     s4_or_s6=S6MambaModule,
-                     d_output=d_input,
-                     d_model=d_model,
-                     n_layer=4,
-                     dropout=0.1,
-                     prenorm=False,
-                     mode="diag",
-                  ).to(d)
+                           d_input = d_input,
+                           d_output = d_output,
+                           pos_emb=False
+                           ).to(d)
+
+   batch = torch.randn(B, L, d_input).to(d)
+
+
+
+   s4model(batch)
+
+
+   model_throughput(s4model, None, d_input, L=L, b=B)
+
+   print("with pos")
+   s4model = S4ClassicModel(
+                           d_input = d_input,
+                           d_output = d_output,
+                           pos_emb=True
+                           ).to(d)
 
    batch = torch.randn(B, L, d_input).to(d)
 
    s4model(batch)
-   print(s4model)
+   model_throughput(s4model, None, d_input, L=L, b=B)
+
+
+   #print(s4model)
 
 
 

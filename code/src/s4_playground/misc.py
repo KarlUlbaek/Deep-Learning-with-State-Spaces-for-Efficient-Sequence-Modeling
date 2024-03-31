@@ -33,3 +33,45 @@ def setup_optimizer(model, opt=AdamW, Sched=CosSched, lr=1e-3, lr_scale = 0.1, w
 # optimizer, scheduler = setup_optimizer(
 #    model, lr=args.lr, weight_decay=args.weight_decay, epochs=args.epochs
 # )
+
+from s4_playground.rope_fork import RotaryEmbedding
+
+class RotaryEmbeddingCustom(torch.nn.Module):
+   def __init__(self, d_model , loc="all", BDL_shape=True, theta=10):
+      super().__init__()
+
+      self.pos_emb_layer = RotaryEmbedding(dim=d_model, theta=theta)
+      assert loc in ["all", "first", "everyother"]
+      self.loc = loc
+      self.BDL_shape = BDL_shape
+
+   def forward(self, x, layer_idx):
+      if self.BDL_shape:
+         if self.loc == "all":
+            return self.pos_emb_layer.rotate_queries_or_keys(x.transpose(-1, -2)).transpose(-1, -2)
+
+         if self.loc == "first" and layer_idx == 0:
+            return self.pos_emb_layer.rotate_queries_or_keys(x.transpose(-1, -2)).transpose(-1, -2)
+
+         if self.loc == "everyother" and ((layer_idx) % 2 == 0):
+            return self.pos_emb_layer.rotate_queries_or_keys(x.transpose(-1, -2)).transpose(-1, -2)
+         return x
+
+      else:
+         if self.loc == "all":
+            return self.pos_emb_layer.rotate_queries_or_keys(x)
+
+         if self.loc == "first" and layer_idx == 0:
+            return self.pos_emb_layer.rotate_queries_or_keys(x)
+
+         if self.loc == "everyother" and ((layer_idx) % 2 == 0):
+            return self.pos_emb_layer.rotate_queries_or_keys(x)
+         return x
+
+
+
+
+
+
+
+
