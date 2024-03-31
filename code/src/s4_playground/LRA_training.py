@@ -199,9 +199,6 @@ if __name__ == "__main__":
                         d_state=d_state, dropout=dropout, s4={"mode": "diag", "hippo_init": "legs"},
                         layernorm=layernorm, prenorm=prenorm)
 
-   Models = [s4dClassic, s4Classic, s6Mamba, s4Mamba, s4dMamba]
-
-
    from lra import IMDB, PathFinder
    from s4_fork.src.dataloaders.basic import CIFAR10
 
@@ -228,23 +225,25 @@ if __name__ == "__main__":
    #data.setup("../data")
    Pathfindertoken = deepcopy(data)
 
+   Models = [s4Mamba, s4dMamba, s4Classic, s4dClassic]#, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [Pathfindertoken, Pathfindercont]
-   datasets = [CIFAR10cont]#, Pathfindercont]
+   datasets = [Pathfindertoken]
+   #datasets = [Pathfindercont]
 
-   n_epochs = 1
+   n_epochs = 50
    b = 64
    classification = True
-   num_workers = 4
+   num_workers = 2
    d = "cuda"
-   lr = 1e-4
-   lr_scale = 0.1
+   lr = 1e-3
+   lr_scale = 0.1 # 0.1
+   weight_decay = 0.0 # 0.01
    criterion = CrossEntropyLoss()
 
    test_throughput = True
    run_test_run = True
-   wandb_logging = False
+   wandb_logging = True
 
 
    test_modes = [True, False] if run_test_run else [False]
@@ -281,7 +280,8 @@ if __name__ == "__main__":
             model = Model(d_input=d_input, d_output=d_output, vocab_size=vocab_size, classification=classification)
             m_name, n_params = print_model_stats(model)
             model = model.to(d)
-            optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs)
+            optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs, weight_decay=weight_decay)
+            #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
 
             if test_throughput:
                data_throughput(train_loader, d_name)
@@ -290,9 +290,10 @@ if __name__ == "__main__":
             if test_mode or not wandb_logging:
                wandb_run = None
             else:
-               wandb_run = wandb.init(project=d_name, config={"model":m_name, "data":d_name, "lr":lr, "b": b,
-                                                                 "n_layer":model.n_layer, "d_state":model.d_state,
-                                                                 "d_model":model.d_model, "n_params": n_params})
+               wandb_run = wandb.init(project=d_name, name=m_name,
+                                      config={"model":m_name, "data":d_name, "lr":lr, "b": b,
+                                      "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
+                                      "d_model":model.d_model, "n_params": n_params})
 
             wandb_run = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
                                 criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
