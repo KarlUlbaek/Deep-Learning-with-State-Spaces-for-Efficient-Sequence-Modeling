@@ -381,9 +381,19 @@ class S6MambaModuleExp(nn.Module):
         self.activation = "silu"
         self.act = nn.SiLU()
 
-        self.x_proj = nn.Linear(
-            self.d_inner, self.dt_rank + self.d_state * 2, bias=False, **factory_kwargs
-        )
+        # self.x_proj = nn.Linear(
+        #     self.d_inner, self.dt_rank + self.d_state * 2, bias=False, **factory_kwargs
+        # )
+
+
+        # x_dbl = self.x_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
+        # dt, B, C = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1)
+        # dt = self.dt_proj.weight @ dt.t()
+        #
+        self.B_proj = nn.Linear(self.d_inner, self.d_state, bias=False, **factory_kwargs)
+        self.C_proj = nn.Linear(self.d_inner, self.d_state, bias=False, **factory_kwargs)
+        self.dt_proj0 = nn.Linear(self.d_inner, self.dt_rank, bias=False, **factory_kwargs)
+
         self.dt_proj = nn.Linear(self.dt_rank, self.d_inner, bias=True, **factory_kwargs)
 
         # Initialize special dt projection to preserve variance at initialization
@@ -426,10 +436,20 @@ class S6MambaModuleExp(nn.Module):
         self.dropout = nn.Dropout1d(p=dropout) if dropout > 0.0 else nn.Identity()
         self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
+        # ugly initilizaion of poss embeddings for more flexibility and certainty
         self.use_pos_emb = bool(pos_emb)
         if self.use_pos_emb:
-            if self.layer_idx == 0: print("using pos {} embddings".format(pos_emb["loc"]))
-            self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_model*2, **pos_emb, BDL_shape=True)
+            if self.layer_idx == 0:
+                print("using pos {} embeddings".format(pos_emb["loc"]))
+
+            assert "b_c_dt_x" in pos_emb != 0, "pos_emb kw_args dict must contrain a_b_dt entry!"
+            self.b_c_dt_x_posemb = pos_emb["b_c_dt_x"].lower()
+            if self.layer_idx == 0:
+                for letter in ["b", "c", "dt", "x"]:
+                    if letter in self.b_c_dt_x_posemb:
+                        print("using pos embeddings at {}".format(letter))
+
+            self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_inner, **pos_emb, BDL_shape=True)
 
     def forward(self, hidden_states, inference_params=None):
         """
@@ -456,9 +476,6 @@ class S6MambaModuleExp(nn.Module):
             xz = xz + rearrange(self.in_proj.bias.to(dtype=xz.dtype), "d -> d 1")
         xz = self.dropout(xz)
 
-        if self.use_pos_emb:
-            xz = self.pos_emb_layer(xz, self.layer_idx)
-
         A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
 
         x, z = xz.chunk(2, dim=1)
@@ -473,11 +490,32 @@ class S6MambaModuleExp(nn.Module):
             activation=self.activation,
         )
 
-        # We're careful here about the layout, to avoid extra transposes.
-        # We want dt to have d as the slowest moving dimension
-        # and L as the fastest moving dimension, since those are what the ssm_scan kernel expects.
-        x_dbl = self.x_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
-        dt, B, C = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1)
+        if self.use_pos_emb:
+            x_poss = self.pos_emb_layer(x, self.layer_idx)
+            ################################################################
+            if "b" in self.b_c_dt_x_posemb:
+                B = self.B_proj(rearrange(x_poss, "b d l -> (b l) d"))
+            else:
+                B = self.B_proj(rearrange(x, "b d l -> (b l) d"))
+            ################################################################
+            if "c" in self.b_c_dt_x_posemb:
+                C = self.C_proj(rearrange(x_poss, "b d l -> (b l) d"))
+            else:
+                C = self.C_proj(rearrange(x, "b d l -> (b l) d"))
+            ################################################################
+            if "dt" in self.b_c_dt_x_posemb:
+                dt = self.dt_proj0(rearrange(x_poss, "b d l -> (b l) d"))
+            else:
+                dt = self.dt_proj0(rearrange(x, "b d l -> (b l) d"))
+            ################################################################
+            if "x" in self.b_c_dt_x_posemb:
+                x = x_poss
+
+        else:
+            B = self.B_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
+            C = self.C_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
+            dt = self.dt_proj0(rearrange(x, "b d l -> (b l) d"))  # (bl d)
+
         dt = self.dt_proj.weight @ dt.t()
         dt = rearrange(dt, "d (b l) -> b d l", l=seqlen)
         B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()

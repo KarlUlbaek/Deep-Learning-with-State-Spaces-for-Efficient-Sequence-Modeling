@@ -144,17 +144,18 @@ if __name__ == "__main__":
    from s4_fork.src.dataloaders.basic import CIFAR10
 
 
-   data = CIFAR10("cifar")
-   data.setup("../data/cifar10")
-   CIFAR10cont = deepcopy(data)
-   data.tokenize = True
-   data.grayscale = True
-   data.setup("../data/cifar10")
-   CIFAR10token = deepcopy(data)
+   # data = CIFAR10("cifar")
+   # data.setup("../data/cifar10")
+   # CIFAR10cont = deepcopy(data)
+   # data.tokenize = True
+   # data.grayscale = True
+   # data.setup("../data/cifar10")
+   # CIFAR10token = deepcopy(data)
    #
-   # data = IMDB("imdb")
-   # data.setup("../data")
-   # IMDBtoken = deepcopy(data)
+   data = IMDB("imdb")
+   data.l_max = 1024
+   data.setup("../data")
+   IMDBtoken = deepcopy(data)
    #
    # data = PathFinder("pathfinder")
    # data.setup("../data")
@@ -168,10 +169,31 @@ if __name__ == "__main__":
    Models = [s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [CIFAR10cont]#, CIFAR10cont]
+   datasets = [IMDBtoken]#, CIFAR10cont]
    #datasets = [Pathfindercont]
 
-   pos_embs = [{}]
+   pos_embs = [
+               {},
+               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "bc"},
+               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "dt"},
+               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "bcdt"},
+               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "x"},
+               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "bcx"},
+
+               {},
+               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "bc"},
+               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "dt"},
+               # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "bcdt"},
+               # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "x"},
+               # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "bcx"},
+               #
+               # {},
+               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "bc"},
+               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "dt"},
+               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "bcdt"},
+               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "x"},
+               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "bcx"}
+               ]
                # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
                # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False},
                # {"loc": "first", "theta": 10, "seq_norm": 1024, "learned_freq": False},
@@ -179,13 +201,13 @@ if __name__ == "__main__":
                # {"loc": "first", "theta": 10_000, "seq_norm": None, "learned_freq": False},
                # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False}]
 
-   n_epochs = 25
+   n_epochs = 15
    sched_epochs = int(n_epochs * 1.5)
    b = 64
    classification = True
    num_workers = 0
    d = "cuda"
-   lr = 3e-4
+   lr = 3e-3
    lr_scale = 0.1 # 0.1
    weight_decay = 0.01 # 0.01
    #pos_emb = {}#{"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "BDL_shape": True}
