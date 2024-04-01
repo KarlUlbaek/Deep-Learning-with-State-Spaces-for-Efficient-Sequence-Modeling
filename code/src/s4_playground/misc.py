@@ -3,15 +3,6 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR as CosSched
 
 def setup_optimizer(model, opt=AdamW, Sched=CosSched, lr=1e-3, lr_scale = 0.1, weight_decay=0.01, epochs=100):
-   """
-   S4 requires a specific optimizer setup.
-
-   The S4 layer (A, B, C, dt) parameters typically
-   require a smaller learning rate (typically 0.001), with no weight decay.
-
-   The rest of the model can be trained with a higher learning rate (e.g. 0.004, 0.01)
-   and weight decay (if desired).
-   """
 
    # All parameters in the model
    all_parameters = list(model.parameters())

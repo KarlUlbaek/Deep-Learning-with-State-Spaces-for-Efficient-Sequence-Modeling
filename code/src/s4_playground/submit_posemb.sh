@@ -2,7 +2,7 @@
 ### General options
 ### –- specify queue --
 #BSUB -q gpua100
-#BSUB -J C10TokEmb
+#BSUB -J C10CoEmb2
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 4
 ### -- Select the resources: 1 gpu in exclusive process mode --

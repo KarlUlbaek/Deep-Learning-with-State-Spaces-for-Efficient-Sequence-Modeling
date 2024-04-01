@@ -252,27 +252,11 @@ if __name__ == "__main__":
    # #data.setup("../data")
    # Pathfindertoken = deepcopy(data)
 
-   Models = [s6Mamba, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+   Models = [s4dMamba, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [CIFAR10cont, CIFAR10cont]
+   datasets = [CIFAR10cont]#, CIFAR10cont]
    #datasets = [Pathfindercont]
-
-   n_epochs = 2
-   b = 64
-   classification = True
-   num_workers = 0
-   d = "cuda"
-   lr = 3e-3
-   lr_scale = 0.1 # 0.1
-   weight_decay = 0.01 # 0.01
-   pos_emb = {}#{"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "BDL_shape": True}
-   #loc must be ["all", "first", "everyother"]
-   criterion = CrossEntropyLoss()
-
-   test_throughput = True
-   run_test_run = True
-   wandb_logging = False
 
    pos_embs = [{},
                {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
@@ -282,6 +266,23 @@ if __name__ == "__main__":
                {"loc": "first", "theta": 10_000, "seq_norm": None, "learned_freq": False},
                {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False}]
 
+   n_epochs = 25
+   sched_epochs = int(n_epochs * 1.5)
+   b = 64
+   classification = True
+   num_workers = 0
+   d = "cuda"
+   lr = 3e-3
+   lr_scale = 0.1 # 0.1
+   weight_decay = 0.01 # 0.01
+   #pos_emb = {}#{"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "BDL_shape": True}
+   #loc must be ["all", "first", "everyother"]
+   criterion = CrossEntropyLoss()
+
+   test_throughput = True
+   run_test_run = True
+   wandb_logging = False
+   wandb_name = "_pos2" #""
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
@@ -321,7 +322,7 @@ if __name__ == "__main__":
                   m_name, n_params = print_model_stats(model)
                   m_name += str(list(pos_emb.values()))
                   model = model.to(d)
-                  optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs, weight_decay=weight_decay)
+                  optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay)
                   #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
 
                   if test_throughput:
@@ -332,7 +333,7 @@ if __name__ == "__main__":
                      wandb_run = None
                   else:
                      print("Logging with wandb! Happens after 2. epoch!")
-                     wandb_run = partial(wandb.init, project=d_name+"_emb", name=m_name,
+                     wandb_run = partial(wandb.init, project=d_name+wandb_name, name=m_name,
                                          config={"model":m_name, "data":d_name, "lr":lr, "b": b, "weight_decay":weight_decay,
                                                  "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
                                                  "d_model":model.d_model, "n_params": n_params})
