@@ -165,19 +165,19 @@ if __name__ == "__main__":
    # #data.setup("../data")
    # Pathfindertoken = deepcopy(data)
 
-   Models = [s4dMamba, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+   Models = [s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
    datasets = [CIFAR10cont]#, CIFAR10cont]
    #datasets = [Pathfindercont]
 
-   pos_embs = [{},
-               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
-               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False},
-               {"loc": "first", "theta": 10, "seq_norm": 1024, "learned_freq": False},
-
-               {"loc": "first", "theta": 10_000, "seq_norm": None, "learned_freq": False},
-               {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False}]
+   pos_embs = [{}]
+               # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
+               # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False},
+               # {"loc": "first", "theta": 10, "seq_norm": 1024, "learned_freq": False},
+               #
+               # {"loc": "first", "theta": 10_000, "seq_norm": None, "learned_freq": False},
+               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False}]
 
    n_epochs = 25
    sched_epochs = int(n_epochs * 1.5)
@@ -185,7 +185,7 @@ if __name__ == "__main__":
    classification = True
    num_workers = 0
    d = "cuda"
-   lr = 3e-3
+   lr = 3e-4
    lr_scale = 0.1 # 0.1
    weight_decay = 0.01 # 0.01
    #pos_emb = {}#{"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "BDL_shape": True}
@@ -235,6 +235,7 @@ if __name__ == "__main__":
                   m_name, n_params = print_model_stats(model)
                   m_name += str(list(pos_emb.values()))
                   model = model.to(d)
+                  #print(model)
                   optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay)
                   #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
 
