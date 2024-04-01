@@ -169,7 +169,7 @@ class s4MambaModule(nn.Module):
       x = self.s4fft(x)
       x = x * self.act(z)
 
-      x = self.dropout(x)
+      #x = self.dropout(x)
       x = rearrange(x, "b d l -> b l d")
       out = self.out_proj(x)
 

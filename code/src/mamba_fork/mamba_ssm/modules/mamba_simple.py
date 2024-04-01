@@ -73,7 +73,6 @@ class S6MambaModule(nn.Module):
         layer_idx=None,
         device=None,
         dtype=None,
-        pos_emb={},
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -145,11 +144,6 @@ class S6MambaModule(nn.Module):
         self.dropout = nn.Dropout1d(p=dropout) if dropout > 0.0 else nn.Identity()
         self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
-        self.use_pos_emb = bool(pos_emb)
-        if self.use_pos_emb:
-            if self.layer_idx == 0: print("using pos {} embddings".format(pos_emb["loc"]))
-            self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_model*2, **pos_emb, BDL_shape=True)
-
     def forward(self, hidden_states, inference_params=None):
         """
         hidden_states: (B, L, D)
@@ -174,9 +168,6 @@ class S6MambaModule(nn.Module):
         if self.in_proj.bias is not None:
             xz = xz + rearrange(self.in_proj.bias.to(dtype=xz.dtype), "d -> d 1")
         xz = self.dropout(xz)
-
-        if self.use_pos_emb:
-            xz = self.pos_emb_layer(xz, self.layer_idx)
 
         A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
         # In the backward pass we write dx and dz next to each other to avoid torch.cat
@@ -240,9 +231,10 @@ class S6MambaModule(nn.Module):
                 y, last_state = y
                 ssm_state.copy_(last_state)
 
-            y = self.dropout(y)
+            #y = self.dropout(y)
             y = rearrange(y, "b d l -> b l d")
             out = self.out_proj(y)
+
         return out
 
     def step(self, hidden_states, conv_state, ssm_state):
@@ -334,7 +326,7 @@ class S6MambaModule(nn.Module):
         return conv_state, ssm_state
 
 
-class S6MambaModuleExp(nn.Module):
+class S6MambaModulePosEmb(nn.Module):
     def __init__(
         self,
         d_model,
@@ -537,12 +529,11 @@ class S6MambaModuleExp(nn.Module):
             y, last_state = y
             ssm_state.copy_(last_state)
 
-        y = self.dropout(y)
+        # should be removed since it cant be used in fast path
+        #y = self.dropout(y)
         y = rearrange(y, "b d l -> b l d")
         out = self.out_proj(y)
         return out
-
-
 
 
 

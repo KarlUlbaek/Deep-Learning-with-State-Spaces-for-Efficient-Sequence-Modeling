@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 
 from mamba_ssm.models.config_mamba import MambaConfig
-from mamba_ssm.modules.mamba_simple import S6MambaModule, S6MambaModuleExp ,MambaBlock
+from mamba_ssm.modules.mamba_simple import S6MambaModule, S6MambaModulePosEmb ,MambaBlock
 from mamba_ssm.utils.generation import GenerationMixin
 from mamba_ssm.utils.hf import load_config_hf, load_state_dict_hf
 import os
@@ -41,8 +41,10 @@ def create_block(
     #
     # factory_kwargs = {"device": device, "dtype": dtype}
     if not bool(s4_kwargs):
-        #mixer_cls = partial(S6MambaModule, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb)#, **ssm_cfg, **factory_kwargs)
-        mixer_cls = partial(S6MambaModuleExp, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb)#, **ssm_cfg, **factory_kwargs)
+        if not bool(pos_emb):
+            mixer_cls = partial(S6MambaModule, dropout=dropout, layer_idx=layer_idx)#, **ssm_cfg, **factory_kwargs)
+        else:
+            mixer_cls = partial(S6MambaModulePosEmb, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb)#, **ssm_cfg, **factory_kwargs)
     else:
         mixer_cls = partial(s4MambaModule, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb, s4_kwargs=s4_kwargs)#, **ssm_cfg, **factory_kwargs)
 
