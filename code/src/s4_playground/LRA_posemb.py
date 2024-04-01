@@ -2,29 +2,12 @@ import torchvision
 from torch.utils.data import DataLoader, Dataset
 import torch
 import tqdm
-from torch.optim import AdamW
-from einops import rearrange
 from torch.nn import CrossEntropyLoss
 import sys, os
 sys.path.append(os.getcwd())
-import time
+from s4_playground.misc import setup_optimizer, print_model_stats, model_throughput, data_throughput
 
 
-ROOT_data = "../data/cifar10/"
-class Cifar10seq(Dataset):
-   def __init__(self, train=True, d="cpu"):
-      data = torchvision.datasets.CIFAR10(root=ROOT_data, train=train, download=False)
-      x = torch.from_numpy(data.data).to(torch.float)
-      x = rearrange(x, "a b c d -> a (b c) d")
-      x = x / x.max()
-      self.x = x.to(d)
-      self.y = torch.tensor(data.targets).to(d).to(torch.long)
-
-   def __len__(self):
-      return self.x.shape[0]
-
-   def __getitem__(self, idx):
-      return self.x[idx], self.y[idx]
 
 def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_run,
             improvement_demand=0.03):
@@ -117,90 +100,20 @@ def eval(model, eval_loader, info_dict, test_mode):
 
 #
 # print(f"Epoch {epoch_dix} learning rate: {sched.get_last_lr()[0]}")
-def print_model_stats(model):
-   name = model.__class__.__name__ + " " + model.s4
-   n_layer, d_state, d_model = model.n_layer, model.d_state, model.d_model
-   trainable_params = sum([param.numel() for param in model.parameters() if param.requires_grad])
-   nontrainable_params = sum([param.numel() for param in model.parameters() if not param.requires_grad])
-   print("####################################################################################")
-   print(f"{name}: trainable {trainable_params/1e6:.3f}m, \n"
-         f"n_layers: {n_layer}, d_model: {d_model}, d_state: {d_state}")
-   if nontrainable_params != 0: print("nontrainable params!!!!!!!!!1", nontrainable_params)
-   #print("####################################################################################")
-   return name, trainable_params
-
-# assumes tokesn atm
-def model_throughput(model, vocab_size, d_input, b=64, L=1000, reps=10):
-   opt = AdamW(model.parameters(), lr=1e-9)
-   if vocab_size is not None:
-      batch = (torch.rand((b, L))*(vocab_size-1)).to(torch.long).abs()
-   else:
-      batch = torch.randn((b, L, d_input))
-
-   batch = batch.to("cuda")
-   #warm up
-   model = model.eval()
-   for _ in range(3):
-      model(batch)
-   torch.cuda.synchronize()
-
-   # farward
-   torch.cuda.reset_peak_memory_stats()
-   t0 = time.perf_counter()
-   for _ in range(reps):
-      model(batch)
-   torch.cuda.synchronize()
-   t1 = (time.perf_counter() - t0) / reps
-   mem1 = torch.cuda.max_memory_allocated()
-
-   # backward
-   model = model.train()
-   torch.cuda.reset_peak_memory_stats()
-   t0 = time.perf_counter()
-   for _ in range(int(reps)):
-      (model(batch)).sum().backward()
-      opt.step()
-      opt.zero_grad()
-   torch.cuda.synchronize()
-   t2 = (time.perf_counter() - t0) / reps
-   mem2 = torch.cuda.max_memory_allocated()
-
-   print(f"far/back mem GB: {mem1/1e9:.1f}, {mem2/1e9:.1f}")
-   print(f"far/back speed b/s: {1/t1:.1f}, {1/t2:.1f}")
-   model = model.to("cpu")
-
-def data_throughput(data_loader, name, warmup=10, actualrun=50):
-   for i, _ in enumerate(data_loader):
-      if i == warmup:
-         break
-
-   t0 = time.perf_counter()
-   for i, _ in enumerate(data_loader):
-      if i == actualrun:
-         break
-   t1 = actualrun / (time.perf_counter() - t0)
-
-   print(f"{name} batch per sec: {t1:.1f}" )
 
 
 if __name__ == "__main__":
-   import os
-   import sys
    import wandb
-   from misc import setup_optimizer
    from copy import deepcopy
-   from lra_benchmarks_fork.lra_datasets import LRATensor
 
-   sys.path.append(os.getcwd())
+   from mamba_fork.mamba_ssm.models.mixer_seq_simple import MambaModel
+   from s4_modules import S4ClassicModel, s4ClassicModule
+   from functools import partial
 
    if torch.cuda.get_device_name(0) == "NVIDIA GeForce GTX 1080 Ti":
       fast = False
    else:
       fast = True
-
-   from mamba_fork.mamba_ssm.models.mixer_seq_simple import MambaModel
-   from s4_modules import S4ClassicModel, s4ClassicModule
-   from functools import partial
 
 
    n_layer = 6
@@ -281,7 +194,7 @@ if __name__ == "__main__":
 
    test_throughput = True
    run_test_run = True
-   wandb_logging = False
+   wandb_logging = True
    wandb_name = "_pos2" #""
 
    test_modes = [True, False] if run_test_run else [False]
