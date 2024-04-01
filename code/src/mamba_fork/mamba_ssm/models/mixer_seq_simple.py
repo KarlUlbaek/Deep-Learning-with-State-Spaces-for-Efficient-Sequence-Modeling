@@ -28,32 +28,29 @@ def create_block(
     d_model,
     d_state,
     dropout=0.0,
-    ssm_cfg=None,
     norm_epsilon=1e-5,
     rms_norm=False,
     residual_in_fp32=False,
     fused_add_norm=False,
     layer_idx=None,
-    device=None,
-    dtype=None,
-    s4 = None # {mode:"dplr", hippo_init ="legs"}
+    s4_kwargs = None, # {mode:"dplr", hippo_init ="legs"}
+    pos_emb={}
 ):
-    if ssm_cfg is None:
-        ssm_cfg = {}
-
-    factory_kwargs = {"device": device, "dtype": dtype}
-    if not s4:
-        mixer_cls = partial(S6MambaModule, dropout=dropout,layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
+    # if ssm_cfg is None:
+    #     ssm_cfg = {}
+    #
+    # factory_kwargs = {"device": device, "dtype": dtype}
+    if not bool(s4_kwargs):
+        mixer_cls = partial(S6MambaModule, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb)#, **ssm_cfg, **factory_kwargs)
     else:
-        mixer_cls = partial(s4MambaModule, dropout=dropout,layer_idx=layer_idx, **s4, **ssm_cfg, **factory_kwargs)
+        mixer_cls = partial(s4MambaModule, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb, s4_kwargs=s4_kwargs)#, **ssm_cfg, **factory_kwargs)
 
     norm_cls = partial(
-        nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon, **factory_kwargs
-    )
+        nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon)#, **factory_kwargs
+    #)
     block = MambaBlock(
         d_model=d_model,
         d_state=d_state,
-        dropout=dropout,
         mixer_cls=mixer_cls,
         norm_cls=norm_cls,
         fused_add_norm=fused_add_norm,
@@ -103,20 +100,18 @@ class MambaModel(nn.Module):
         d_output: int,
         classification=True,
         vocab_size = None, # corrosponds to discrete input
-        pos_emb="",
         d_model= 128,
         d_state= 16,
         n_layer= 4,
         dropout= 0.0,
-        ssm_cfg=None,
         norm_epsilon: float = 1e-5,
         rms_norm: bool = False,
         initializer_cfg=None,
         fused_add_norm=False,
         residual_in_fp32=True,
-        device=None,
-        dtype=None,
-        s4=None  # {mode:"dplr", hippo_init ="legs"}
+        s4_kwargs = None,  # {mode:"dplr", hippo_init ="legs"}
+        pos_emb = {}
+
     ) -> None:
         #factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -124,7 +119,7 @@ class MambaModel(nn.Module):
         self.classification = classification
         self.d_model, self.d_state, self.n_layer, self.dropout = d_model, d_state, n_layer, dropout
         self.d_input, self.d_output, self.vocab_size= d_input, d_output, vocab_size
-        self.s4 = "s6" if s4 is None else s4["mode"]
+        self.s4 = "s6" if not bool(s4_kwargs) else s4_kwargs["mode"]
 
         if vocab_size:
             self.encoder = nn.Embedding(vocab_size, d_model)
@@ -133,13 +128,6 @@ class MambaModel(nn.Module):
 
         self.decoder = nn.Linear(d_model, d_output)
 
-        self.use_pos_emb = bool(pos_emb)
-        # if self.use_pos_emb:
-        #     print(f"using pos {pos_emb}")
-        #     self.pos_emb_layer = RotaryEmbeddingCustom(d_model=d_model, loc=pos_emb, BDL_shape=False)
-        #
-        # if self.use_pos_emb:
-        #     hidden_states = self.pos_emb_layer(hidden_states, layer_idx=layer_idx)
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:
         # Add -> LN -> Attn / MLP / Mixer, returning both the residual branch (output of Add) and
@@ -156,14 +144,13 @@ class MambaModel(nn.Module):
                     d_model=d_model,
                     d_state=d_state,
                     dropout=dropout,
-                    ssm_cfg=ssm_cfg,
                     norm_epsilon=norm_epsilon,
                     rms_norm=rms_norm,
                     residual_in_fp32=residual_in_fp32,
                     fused_add_norm=fused_add_norm,
                     layer_idx=i,
-                    s4=s4,  # {mode:"dplr", hippo_init ="legs"}
-                    #**factory_kwargs,
+                    s4_kwargs=s4_kwargs,  # {mode:"dplr", hippo_init ="legs"}
+                    pos_emb=pos_emb
                 )
                 for i in range(n_layer)
             ]

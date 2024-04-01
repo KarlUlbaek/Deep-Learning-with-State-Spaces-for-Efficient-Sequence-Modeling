@@ -207,24 +207,24 @@ if __name__ == "__main__":
    d_model = 116
    d_state = 16
    dropout = 0.1
-   # s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-   #                   fused_add_norm=fast, rms_norm=fast)
-   #
-   # s4Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-   #                   fused_add_norm=fast, rms_norm=fast, s4={"mode": "dplr", "hippo_init": "legs"})
+   s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                     fused_add_norm=fast, rms_norm=fast)
+
+   s4Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                     fused_add_norm=fast, rms_norm=fast, s4_kwargs={"dplr": "diag", "init": "legs"})
 
    s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                      fused_add_norm=fast, rms_norm=fast, s4={"mode": "diag", "hippo_init": "legs"})
+                      fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
 
    d_state = 64
    d_model = 170
    layernorm = True # = True means layernorm and not RMS
    prenorm = False # =
    # s4Classic  = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
-   #                      d_state=d_state, dropout=dropout, s4={"mode": "dplr", "hippo_init": "legs"},
+   #                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "dplr", "init": "legs"},
    #                      layernorm=layernorm, prenorm=prenorm)
    s4dClassic = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
-                        d_state=d_state, dropout=dropout, s4={"mode": "diag", "hippo_init": "legs"},
+                        d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"},
                         layernorm=layernorm, prenorm=prenorm)
 
    from lra import IMDB, PathFinder
@@ -252,13 +252,13 @@ if __name__ == "__main__":
    # #data.setup("../data")
    # Pathfindertoken = deepcopy(data)
 
-   Models = [s4dClassic, s4dMamba]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+   Models = [s6Mamba, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [CIFAR10token, CIFAR10cont]
+   datasets = [CIFAR10cont, CIFAR10cont]
    #datasets = [Pathfindercont]
 
-   n_epochs = 25
+   n_epochs = 2
    b = 64
    classification = True
    num_workers = 0
@@ -272,12 +272,12 @@ if __name__ == "__main__":
 
    test_throughput = True
    run_test_run = True
-   wandb_logging = True
+   wandb_logging = False
 
-   pos_embs = [{"loc": "first", "theta": 10, "seq_norm": 1024, "learned_freq": True},
-               {"loc": "first", "theta": 10, "seq_norm": 1024, "learned_freq": False},
+   pos_embs = [{},
                {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
                {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False},
+               {"loc": "first", "theta": 10, "seq_norm": 1024, "learned_freq": False},
 
                {"loc": "first", "theta": 10_000, "seq_norm": None, "learned_freq": False},
                {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False}]

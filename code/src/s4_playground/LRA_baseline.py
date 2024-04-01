@@ -211,20 +211,20 @@ if __name__ == "__main__":
                      fused_add_norm=fast, rms_norm=fast)
 
    s4Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast, s4={"mode": "dplr", "hippo_init": "legs"})
+                     fused_add_norm=fast, rms_norm=fast, s4_kwargs={"dplr": "diag", "init": "legs"})
 
    s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                      fused_add_norm=fast, rms_norm=fast, s4={"mode": "diag", "hippo_init": "legs"})
+                      fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
 
    d_state = 64
    d_model = 170
    layernorm = True # = True means layernorm and not RMS
    prenorm = False # =
    s4Classic  = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
-                        d_state=d_state, dropout=dropout, s4={"mode": "dplr", "hippo_init": "legs"},
+                        d_state=d_state, dropout=dropout, s4_kwargs={"mode": "dplr", "init": "legs"},
                         layernorm=layernorm, prenorm=prenorm)
    s4dClassic = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
-                        d_state=d_state, dropout=dropout, s4={"mode": "diag", "hippo_init": "legs"},
+                        d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"},
                         layernorm=layernorm, prenorm=prenorm)
 
    from lra import IMDB, PathFinder

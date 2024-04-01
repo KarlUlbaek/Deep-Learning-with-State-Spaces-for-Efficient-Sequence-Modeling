@@ -61,9 +61,9 @@ from mamba_fork.mamba_ssm.models.mixer_seq_simple import MambaModel as MambaNN
 s6NN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, discrete_input=False, fused_add_norm=fused_add_norm).to(d)
 
 s4NN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, discrete_input=False, fused_add_norm=fused_add_norm,
-               s4={"mode":"dplr", "hippo_init":"legs"}).to(d)
+               s4_kwargs={"mode": "dplr", "hippo_init": "legs"}).to(d)
 s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, discrete_input=False, fused_add_norm=fused_add_norm,
-                s4={"mode":"diag", "hippo_init":"legs"}).to(d)
+                s4_kwargs={"mode": "diag", "hippo_init": "legs"}).to(d)
 
 #s4conv = FFTConvLean(d_model=d_model, d_state=32, mode="dplr", transposed=False, init="legs").to(d)
 

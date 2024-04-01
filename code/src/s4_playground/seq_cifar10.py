@@ -63,11 +63,11 @@ s6NN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_stat
 
 s4NN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, dropout=dropout,
                d_output= classes, discrete_input=False, fused_add_norm=fast, rms_norm=fast,
-               s4={"mode":"dplr", "hippo_init":"legs"}, classification=classification).to(d)
+               s4_kwargs={"mode": "dplr", "hippo_init": "legs"}, classification=classification).to(d)
 
 s4dNN = MambaNN(n_layer=n_layers, d_model=d_model, d_input=d_data, d_state=d_state, dropout=dropout,
                 d_output= classes, discrete_input=False, fused_add_norm=fast, rms_norm=fast,
-                s4={"mode":"diag", "hippo_init":"legs"}, classification=classification).to(d)
+                s4_kwargs={"mode": "diag", "hippo_init": "legs"}, classification=classification).to(d)
 
 model = s4dNN
 

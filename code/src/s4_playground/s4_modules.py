@@ -44,16 +44,17 @@ class FFTConvLean(nn.Module):
       channels=1,
       transposed=True,
       mode='dplr',
-      #kernel=None,
-      **kernel_args,  # Arguments passed into inner convolution kernel
+      init='legs',
+      d_state=64,  # Arguments passed into inner convolution kernel
    ):
       super().__init__()
       self.d_model = d_model
       self.L = self.l_max = l_max
       self.channels = channels
       self.BDL_shape = transposed
-
       self.D = nn.Parameter(torch.ones((channels, self.d_model, 1), dtype=torch.float))
+
+      #kernel_args = {"d_state": d_state}
       #self.D._optim = False  # will get lower learning rate
       #self.D._no_weight_decay = False  # will not get weight decaay
 
@@ -62,7 +63,8 @@ class FFTConvLean(nn.Module):
          d_model=self.d_model,
          l_max=self.l_max,
          channels=channels,
-         **kernel_args,
+         init=init,
+         d_state=d_state
       )
 
       #dropout_fn = DropoutNd if tie_dropout else nn.Dropout
@@ -103,8 +105,7 @@ class s4MambaModule(nn.Module):
       layer_idx=None,
       device=None,
       dtype=None,
-      mode="dplr",
-      hippo_init ="legs",
+      s4_kwargs = {},
       pos_emb = {}
    ):
       factory_kwargs = {"device": device, "dtype": dtype}
@@ -117,7 +118,7 @@ class s4MambaModule(nn.Module):
       self.layer_idx = layer_idx
       self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
 
-      self.s4fft = FFTConvLean(self.d_inner, d_state=d_state, mode=mode, init=hippo_init)
+      self.s4fft = FFTConvLean(self.d_inner, d_state=d_state, **s4_kwargs)
 
       self.activation = "silu"
       self.act = nn.SiLU()
@@ -135,10 +136,10 @@ class s4MambaModule(nn.Module):
       self.dropout = nn.Dropout1d(p=dropout) if dropout > 0.0 else nn.Identity()
       self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
-      # self.use_pos_emb = bool(pos_emb)
-      # if self.use_pos_emb:
-      #    print("using pos {}".format(pos_emb["loc"]))
-      #    self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_inner, **pos_emb, BDL_shape=True)
+      self.use_pos_emb = bool(pos_emb)
+      if self.use_pos_emb:
+         if self.layer_idx == 0: print("using pos {} embddings".format(pos_emb["loc"]))
+         self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_inner, **pos_emb, BDL_shape=True)
 
    def forward(self, hidden_states, inference_params=None):
       batch, seqlen, dim = hidden_states.shape
@@ -162,8 +163,8 @@ class s4MambaModule(nn.Module):
          activation=self.activation,
       )
 
-      # if self.use_pos_emb:
-      #    x = self.pos_emb_layer(x, layer_idx=self.layer_idx)
+      if self.use_pos_emb:
+         x = self.pos_emb_layer(x, layer_idx=self.layer_idx)
 
       x = self.s4fft(x)
       x = x * self.act(z)
@@ -180,8 +181,8 @@ class s4ClassicModule(nn.Module):
       d_state=64,
       dropout=0.0,
       layer_idx=None,
-      mode="diag",
-      hippo_init ="legs"
+      s4_kwargs = {"mode":"diag", "init":"legs"},
+      pos_emb = {}
    ):
       #factory_kwargs = {"device": device, "dtype": dtype}
       super().__init__()
@@ -189,7 +190,7 @@ class s4ClassicModule(nn.Module):
       self.d_model = d_model
       self.d_state = d_state
       self.layer_idx = layer_idx
-      self.s4fft = FFTConvLean(d_model, d_state=d_state, mode=mode, init=hippo_init)
+      self.s4fft = FFTConvLean(d_model, d_state=d_state, **s4_kwargs)
 
       self.activation = nn.GELU()
       # dropout_fn = nn.Dropout2d # NOTE: bugged in PyTorch 1.11
@@ -200,11 +201,17 @@ class s4ClassicModule(nn.Module):
          nn.Conv1d(self.d_model, 2 * self.d_model, kernel_size=1),
          nn.GLU(dim=-2),
       )
-
+      self.use_pos_emb = bool(pos_emb)
+      if self.use_pos_emb:
+         if self.layer_idx == 0: print("using pos {}".format(pos_emb["loc"]))
+         self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_model, **pos_emb, BDL_shape=True)
 
    def forward(self, hidden_states, inference_params=None):
       #batch, seqlen, dim = hidden_states.shape
       #x = rearrange(hidden_states, "b d l -> b l d")
+      if self.use_pos_emb:
+         hidden_states = self.pos_emb_layer(hidden_states, self.layer_idx)
+
       x = self.s4fft(hidden_states)
 
 
@@ -220,121 +227,121 @@ class s4ClassicModule(nn.Module):
       return x
 
 
-class s6ClassicModule(nn.Module):
-   def __init__(
-      self,
-      d_model,
-      dropout=0.0,
-      mode=None,
-      d_state=16,
-      dt_rank="auto",
-      dt_min=0.001,
-      dt_max=0.1,
-      dt_init="random",
-      dt_scale=1.0,
-      dt_init_floor=1e-4,
-      layer_idx=None,
-      device=None,
-      dtype=None,
-   ):
-      factory_kwargs = {"device": device, "dtype": dtype}
-      super().__init__()
-      self.d_model = d_model
-      self.d_state = d_state
-      self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
-      self.layer_idx = layer_idx
-
-      #self.activation = "silu"
-      #self.act = nn.SiLU()
-
-      self.x_proj = nn.Linear(
-         self.d_model, self.dt_rank + self.d_state * 2, bias=False, **factory_kwargs
-      )
-      self.dt_proj = nn.Linear(self.dt_rank, self.d_model, bias=True, **factory_kwargs)
-
-      # Initialize special dt projection to preserve variance at initialization
-      dt_init_std = self.dt_rank ** -0.5 * dt_scale
-      if dt_init == "constant":
-         nn.init.constant_(self.dt_proj.weight, dt_init_std)
-      elif dt_init == "random":
-         nn.init.uniform_(self.dt_proj.weight, -dt_init_std, dt_init_std)
-      else:
-         raise NotImplementedError
-
-      # Initialize dt bias so that F.softplus(dt_bias) is between dt_min and dt_max
-      dt = torch.exp(
-         torch.rand(self.d_model, **factory_kwargs) * (math.log(dt_max) - math.log(dt_min))
-         + math.log(dt_min)
-      ).clamp(min=dt_init_floor)
-      # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
-      inv_dt = dt + torch.log(-torch.expm1(-dt))
-      with torch.no_grad():
-         self.dt_proj.bias.copy_(inv_dt)
-      # Our initialization would set all Linear.bias to zero, need to mark this one as _no_reinit
-      self.dt_proj.bias._no_reinit = True
-
-      # S4D real initialization
-      A = repeat(
-         torch.arange(1, self.d_state + 1, dtype=torch.float32, device=device),
-         "n -> d n",
-         d=self.d_model,
-      ).contiguous()
-      A_log = torch.log(A)  # Keep A_log in fp32
-      self.A_log = nn.Parameter(A_log)
-      self.A_log._optim = True
-      self.A_log._no_weight_decay = True
-
-      # D "skip" parameter
-      self.D = nn.Parameter(torch.ones(self.d_model, device=device))  # Keep in fp32
-      # self.D._optim = False
-      # self.D._no_weight_decay = False
-
-
-      self.activation = nn.GELU()
-      self.dropout = nn.Dropout1d(dropout) if dropout > 0.0 else nn.Identity()
-
-      # position-wise output transform to mix features
-      self.output_linear = nn.Sequential(
-         nn.Conv1d(self.d_model, 2 * self.d_model, kernel_size=1),
-         nn.GLU(dim=-2),
-      )
-
-   def forward(self, hidden_states, inference_params=None):
-      """
-      hidden_states: (B, D, L)
-      Returns: same shape as hidden_states
-      """
-      batch, dim, seqlen = hidden_states.shape
-      conv_state, ssm_state = None, None
-
-      A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
-      x = hidden_states #x = b d l
-      z = x.clone()#torch.ones_like(x)*1.2785 # silu(torch.ones(1,)*1.2785)=1 such that the skip connection doesnt do anything
-      x_dbl = self.x_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
-      dt, B, C = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1)
-      dt = self.dt_proj.weight @ dt.t()
-      dt = rearrange(dt, "d (b l) -> b d l", l=seqlen)
-      B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
-      C = rearrange(C, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
-      #assert self.activation in ["silu", "swish"]
-      y = selective_scan_fn(
-         x,
-         dt,
-         A,
-         B,
-         C,
-         self.D.float(),
-         z=z,
-         delta_bias=self.dt_proj.bias.float(),
-         delta_softplus=True,
-         return_last_state=ssm_state is not None,
-      )
-
-      y = self.dropout(self.activation(y))
-
-      y = self.output_linear(y)
-
-      return y
+# class s6ClassicModule(nn.Module):
+#    def __init__(
+#       self,
+#       d_model,
+#       dropout=0.0,
+#       mode=None,
+#       d_state=16,
+#       dt_rank="auto",
+#       dt_min=0.001,
+#       dt_max=0.1,
+#       dt_init="random",
+#       dt_scale=1.0,
+#       dt_init_floor=1e-4,
+#       layer_idx=None,
+#       device=None,
+#       dtype=None,
+#    ):
+#       factory_kwargs = {"device": device, "dtype": dtype}
+#       super().__init__()
+#       self.d_model = d_model
+#       self.d_state = d_state
+#       self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
+#       self.layer_idx = layer_idx
+#
+#       #self.activation = "silu"
+#       #self.act = nn.SiLU()
+#
+#       self.x_proj = nn.Linear(
+#          self.d_model, self.dt_rank + self.d_state * 2, bias=False, **factory_kwargs
+#       )
+#       self.dt_proj = nn.Linear(self.dt_rank, self.d_model, bias=True, **factory_kwargs)
+#
+#       # Initialize special dt projection to preserve variance at initialization
+#       dt_init_std = self.dt_rank ** -0.5 * dt_scale
+#       if dt_init == "constant":
+#          nn.init.constant_(self.dt_proj.weight, dt_init_std)
+#       elif dt_init == "random":
+#          nn.init.uniform_(self.dt_proj.weight, -dt_init_std, dt_init_std)
+#       else:
+#          raise NotImplementedError
+#
+#       # Initialize dt bias so that F.softplus(dt_bias) is between dt_min and dt_max
+#       dt = torch.exp(
+#          torch.rand(self.d_model, **factory_kwargs) * (math.log(dt_max) - math.log(dt_min))
+#          + math.log(dt_min)
+#       ).clamp(min=dt_init_floor)
+#       # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
+#       inv_dt = dt + torch.log(-torch.expm1(-dt))
+#       with torch.no_grad():
+#          self.dt_proj.bias.copy_(inv_dt)
+#       # Our initialization would set all Linear.bias to zero, need to mark this one as _no_reinit
+#       self.dt_proj.bias._no_reinit = True
+#
+#       # S4D real initialization
+#       A = repeat(
+#          torch.arange(1, self.d_state + 1, dtype=torch.float32, device=device),
+#          "n -> d n",
+#          d=self.d_model,
+#       ).contiguous()
+#       A_log = torch.log(A)  # Keep A_log in fp32
+#       self.A_log = nn.Parameter(A_log)
+#       self.A_log._optim = True
+#       self.A_log._no_weight_decay = True
+#
+#       # D "skip" parameter
+#       self.D = nn.Parameter(torch.ones(self.d_model, device=device))  # Keep in fp32
+#       # self.D._optim = False
+#       # self.D._no_weight_decay = False
+#
+#
+#       self.activation = nn.GELU()
+#       self.dropout = nn.Dropout1d(dropout) if dropout > 0.0 else nn.Identity()
+#
+#       # position-wise output transform to mix features
+#       self.output_linear = nn.Sequential(
+#          nn.Conv1d(self.d_model, 2 * self.d_model, kernel_size=1),
+#          nn.GLU(dim=-2),
+#       )
+#
+#    def forward(self, hidden_states, inference_params=None):
+#       """
+#       hidden_states: (B, D, L)
+#       Returns: same shape as hidden_states
+#       """
+#       batch, dim, seqlen = hidden_states.shape
+#       conv_state, ssm_state = None, None
+#
+#       A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
+#       x = hidden_states #x = b d l
+#       z = x.clone()#torch.ones_like(x)*1.2785 # silu(torch.ones(1,)*1.2785)=1 such that the skip connection doesnt do anything
+#       x_dbl = self.x_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
+#       dt, B, C = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1)
+#       dt = self.dt_proj.weight @ dt.t()
+#       dt = rearrange(dt, "d (b l) -> b d l", l=seqlen)
+#       B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
+#       C = rearrange(C, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
+#       #assert self.activation in ["silu", "swish"]
+#       y = selective_scan_fn(
+#          x,
+#          dt,
+#          A,
+#          B,
+#          C,
+#          self.D.float(),
+#          z=z,
+#          delta_bias=self.dt_proj.bias.float(),
+#          delta_softplus=True,
+#          return_last_state=ssm_state is not None,
+#       )
+#
+#       y = self.dropout(self.activation(y))
+#
+#       y = self.output_linear(y)
+#
+#       return y
 
 
 class S4ClassicModel(nn.Module):
@@ -351,11 +358,11 @@ class S4ClassicModel(nn.Module):
       s4_or_s6 = s4ClassicModule,
       prenorm=False,
       layernorm=True,
-      s4 = {"mode": "dplr", "hippo_init": "legs"},
+      s4_kwargs = {"mode": "dplr", "init": "legs"},
       pos_emb = {},
    ):
       super().__init__()
-      self.d_model, self.d_state, self.n_layer, self.dropout, self.s4 = d_model, d_state, n_layer, dropout, s4["mode"]
+      self.d_model, self.d_state, self.n_layer, self.dropout, self.s4 = d_model, d_state, n_layer, dropout, s4_kwargs["mode"]
       self.d_input, self.d_output, self.vocab_size = d_input, d_output, vocab_size
       self.prenorm = prenorm
       if vocab_size is not None:
@@ -371,19 +378,14 @@ class S4ClassicModel(nn.Module):
       self.norms = nn.ModuleList()
       self.dropouts = nn.ModuleList()
       norm_fn = nn.LayerNorm if layernorm else RMSNorm
-      for _ in range(n_layer):
-         self.layers.append(s4_or_s6(d_model, d_state=d_state, dropout=dropout, **s4))
+      for layer_idx in range(n_layer):
+         self.layers.append(s4_or_s6(d_model, d_state=d_state, layer_idx=layer_idx,
+                                     dropout=dropout, pos_emb=pos_emb, s4_kwargs=s4_kwargs))
          self.norms.append(norm_fn(d_model))
          self.dropouts.append(nn.Dropout1d(dropout))
 
       # Linear decoder
       self.decoder = nn.Linear(d_model, d_output)
-
-      self.use_pos_emb = bool(pos_emb)
-      if self.use_pos_emb:
-         print("using pos {}".format(pos_emb["loc"]))
-         self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_model, **pos_emb, BDL_shape=True)
-         
 
    def forward(self, x):
       """
@@ -400,9 +402,6 @@ class S4ClassicModel(nn.Module):
          if self.prenorm:
             if self.NotMambaShape: norm(residuals.transpose(-1, -2)).transpose(-1, -2)
             else:                  norm(residuals)
-
-         if self.use_pos_emb:
-            residuals = self.pos_emb_layer(residuals, layer_idx=layer_idx)
 
          residuals = layer(residuals)
          residuals = dropout(residuals)
