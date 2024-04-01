@@ -144,13 +144,13 @@ if __name__ == "__main__":
    from s4_fork.src.dataloaders.basic import CIFAR10
 
 
-   # data = CIFAR10("cifar")
-   # data.setup("../data/cifar10")
-   # CIFAR10cont = deepcopy(data)
-   # data.tokenize = True
-   # data.grayscale = True
-   # data.setup("../data/cifar10")
-   # CIFAR10token = deepcopy(data)
+   data = CIFAR10("cifar")
+   data.setup("../data/cifar10")
+   CIFAR10cont = deepcopy(data)
+   data.tokenize = True
+   data.grayscale = True
+   data.setup("../data/cifar10")
+   CIFAR10token = deepcopy(data)
    #
    data = IMDB("imdb")
    data.l_max = 1024
@@ -166,42 +166,24 @@ if __name__ == "__main__":
    # #data.setup("../data")
    # Pathfindertoken = deepcopy(data)
 
-   Models = [s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+   Models = [
+      partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=0.0,
+              fused_add_norm=fast, rms_norm=fast),
+      partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=0.075,
+              fused_add_norm=fast, rms_norm=fast),
+      partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=0.15,
+              fused_add_norm=fast, rms_norm=fast),
+      partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=0.225,
+              fused_add_norm=fast, rms_norm=fast)
+   ]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [IMDBtoken]#, CIFAR10cont]
+   datasets = [CIFAR10token, CIFAR10cont]#, CIFAR10cont]
    #datasets = [Pathfindercont]
 
-   pos_embs = [
-               {},
-               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "bc"},
-               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "dt"},
-               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "bcdt"},
-               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "x"},
-               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "bcx"},
+   pos_embs = [{}]
 
-               {},
-               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "bc"},
-               {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "dt"},
-               # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "bcdt"},
-               # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "x"},
-               # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "bcx"},
-               #
-               # {},
-               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "bc"},
-               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "dt"},
-               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "bcdt"},
-               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "x"},
-               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "bcx"}
-               ]
-               # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
-               # {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False},
-               # {"loc": "first", "theta": 10, "seq_norm": 1024, "learned_freq": False},
-               #
-               # {"loc": "first", "theta": 10_000, "seq_norm": None, "learned_freq": False},
-               # {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False}]
-
-   n_epochs = 15
+   n_epochs = 25
    sched_epochs = int(n_epochs * 1.5)
    b = 64
    classification = True
@@ -217,7 +199,7 @@ if __name__ == "__main__":
    test_throughput = True
    run_test_run = True
    wandb_logging = True
-   wandb_name = "_pos2" #""
+   wandb_name = "_Mamba_dropout_exp" #""
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
