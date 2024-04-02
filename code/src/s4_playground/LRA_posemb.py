@@ -136,7 +136,7 @@ if __name__ == "__main__":
    n_layer = 6
    d_model = 116
    d_state = 16
-   dropout = 0.1
+   dropout = 0.0
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast)
 
@@ -186,15 +186,16 @@ if __name__ == "__main__":
    # Pathfindertoken = deepcopy(data)
 
 
-   Models = [s4dClassic]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+   Models = [s4dClassic, s4dMamba, s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
    datasets = [AAN_dataset]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
 
-   pos_embs = [{}]
+   pos_embs = [{},
+               {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"}]
 
-   n_epochs = 25
+   n_epochs = 2
    sched_epochs = int(n_epochs * 1.5)
    b = 64
    num_workers = 0
@@ -202,7 +203,7 @@ if __name__ == "__main__":
    lr = 3e-3
    lr_scale = 0.1 # 0.1
    weight_decay = 0.01 # 0.01
-   #pos_emb = {}#{"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "BDL_shape": True}
+   #pos_emb = {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"}
    #loc must be ["all", "first", "everyother"]
    criterion = CrossEntropyLoss()
 
