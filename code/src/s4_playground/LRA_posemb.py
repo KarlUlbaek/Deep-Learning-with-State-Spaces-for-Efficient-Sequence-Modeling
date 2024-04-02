@@ -10,9 +10,9 @@ from s4_playground.misc import setup_optimizer, print_model_stats, model_through
 
 
 def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_run,
-            improvement_demand=0.03):
+            improvement_demand=0.03, classification=True):
 
-   info_dict = {}
+   info_dict, train_acc = {}, 0
    for epoch_idx in range(n_epochs):
       info_dict_last_iter = deepcopy(info_dict) # make copy, it is only usued for logging the first iter
       p_bar = tqdm.tqdm(enumerate(train_loader),
@@ -25,9 +25,14 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
       random_guess = 1 / model.d_output
 
       for batch_idx, xy_ in p_bar:
-         x, y = xy_[0].to(d), xy_[1].to(d)
-         pred = model(x)
-         loss = criterion(pred, y)
+         if classification:
+            x, y = xy_[0].to(d), xy_[1].to(d)
+            pred = model(x)
+            loss = criterion(pred, y)
+         else:
+            x = xy_[0].to(d)
+            pred = model(x)
+            loss = criterion(pred[:,:-1,:].transpose(-1,-2), x[:,1:])
 
          loss.backward()
          optimizer.step()
@@ -36,22 +41,28 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
          tot_loss += loss.item()
          info_dict["loss"] = tot_loss / (batch_idx + 1)
 
-         correct += torch.sum((torch.argmax(pred, dim=-1) == y).to(float))
-         tot += y.shape[0]
-         train_acc = (correct / tot).item()
-         info_dict["train acc"] = train_acc
+         if classification:
+            correct += torch.sum((torch.argmax(pred, dim=-1) == y).to(float))
+            tot += y.shape[0]
+            train_acc = (correct / tot).item()
+            info_dict["train acc"] = train_acc
+         else:
+            info_dict["train per"] = torch.exp(torch.tensor(info_dict["loss"])).item()
+
+
+
          p_bar.set_postfix(info_dict)
 
          # break early due to test mode
          if test_mode and batch_idx == 1: break
 
-      info_dict = eval(model, eval_loader, info_dict, test_mode)
+      info_dict = eval(model, eval_loader, info_dict, test_mode, criterion, classification)
       info_dict["lr"] = scheduler.get_last_lr()[0]
       scheduler.step()
 
       # break early due to poor initializing. i.e. if we havent leared anything for the first epoch
       # we demand to be atleast 3% points better than random else we reinitialize
-      if epoch_idx==0 and (train_acc - random_guess) < improvement_demand and not test_mode:
+      if epoch_idx==0 and (train_acc - random_guess) < improvement_demand and not test_mode and classification:
          print(f"model failed since train acc is {train_acc:.3f} and random is {random_guess:.3f} "
                f"and tol is {improvement_demand:.2f}")
          print("Reinitializing and rerunning!!!")
@@ -79,12 +90,13 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
 
       #if batch_idx % 20 == 0:
 @torch.no_grad()
-def eval(model, eval_loader, info_dict, test_mode):
+def eval(model, eval_loader, info_dict, test_mode, criterion, classification=True):
    model.eval()
    all_preds = []
    ys = []
    for idx, xy_ in enumerate(eval_loader):
-      x, y = xy_[0].to(d), xy_[1].to(d)
+      x = xy_[0].to(d)
+      y = xy_[1].to(d) if classification else x
       pred = model(x)
       all_preds.append(pred)
       ys.append(y)
@@ -93,8 +105,13 @@ def eval(model, eval_loader, info_dict, test_mode):
 
    all_preds = torch.cat(all_preds)
    ys = torch.cat(ys)
-   test_acc = torch.mean((torch.argmax(all_preds, dim=-1) == ys).to(float))
-   info_dict["test acc"] = test_acc.cpu().item()
+   if classification:
+      test_acc = torch.mean((torch.argmax(all_preds, dim=-1) == ys).to(float))
+      info_dict["test acc"] = test_acc.cpu().item()
+   else:
+      per = torch.exp(criterion(all_preds[:,:-1,:].transpose(-1,-2), ys[:,1:]))
+      info_dict["test per"] = per.cpu().item()
+
    #p_bar.set_postfix(inf_dict)
    return info_dict
 
@@ -142,7 +159,9 @@ if __name__ == "__main__":
 
    from lra import IMDB, PathFinder
    from s4_fork.src.dataloaders.basic import CIFAR10
+   from s4_playground.misc import AAN_tensor_dataset
 
+   AAN_dataset = AAN_tensor_dataset("../data")
 
    data = CIFAR10("cifar")
    data.setup("../data/cifar10")
@@ -152,11 +171,11 @@ if __name__ == "__main__":
    data.setup("../data/cifar10")
    CIFAR10token = deepcopy(data)
    #
-   data = IMDB("imdb")
-   data.l_max = 1024
-   data.setup("../data")
-   IMDBtoken = deepcopy(data)
-   #
+   # data = IMDB("imdb")
+   # data.l_max = 1024
+   # data.setup("../data")
+   # IMDBtoken = deepcopy(data)
+   # #
    # data = PathFinder("pathfinder")
    # data.setup("../data")
    #data.setup("../data")
@@ -166,19 +185,11 @@ if __name__ == "__main__":
    # #data.setup("../data")
    # Pathfindertoken = deepcopy(data)
 
-   Models = [
-      partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=0.0,
-              fused_add_norm=fast, rms_norm=fast),
-      partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=0.075,
-              fused_add_norm=fast, rms_norm=fast),
-      partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=0.15,
-              fused_add_norm=fast, rms_norm=fast),
-      partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=0.225,
-              fused_add_norm=fast, rms_norm=fast)
-   ]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+
+   Models = [s4dClassic]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [CIFAR10token, CIFAR10cont]#, CIFAR10cont]
+   datasets = [AAN_dataset]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
 
    pos_embs = [{}]
@@ -186,7 +197,6 @@ if __name__ == "__main__":
    n_epochs = 25
    sched_epochs = int(n_epochs * 1.5)
    b = 64
-   classification = True
    num_workers = 0
    d = "cuda"
    lr = 3e-3
@@ -199,7 +209,7 @@ if __name__ == "__main__":
    test_throughput = True
    run_test_run = True
    wandb_logging = True
-   wandb_name = "_Mamba_dropout_exp" #""
+   wandb_name = "pertest" #""
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
@@ -217,7 +227,7 @@ if __name__ == "__main__":
          assert train_loader is not None, "TRAIN LOADER NONE. CAOS"
 
          xy_ = next(iter(train_loader))
-         x, y = xy_[0], xy_[1]
+         x = xy_[0]
          L = x.shape[1]
          if x.dtype in [torch.int64, torch.int32, torch.int16]:
             vocab_size = dataset.n_tokens
@@ -235,7 +245,8 @@ if __name__ == "__main__":
                   d_name = dataset.__class__.__name__
                   d_name = (d_name+"token") if vocab_size is not None else (d_name+"cons")
                   print(f"\n Running on {d_name}")
-                  model = Model(d_input=d_input, d_output=d_output, pos_emb=pos_emb, vocab_size=vocab_size, classification=classification)
+                  model = Model(d_input=d_input, d_output=d_output, pos_emb=pos_emb, vocab_size=vocab_size,
+                                classification=dataset.classification)
                   m_name, n_params = print_model_stats(model)
                   m_name += str(list(pos_emb.values()))
                   model = model.to(d)
@@ -258,7 +269,7 @@ if __name__ == "__main__":
 
                   succes = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
                                    criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
-                                   wandb_run=wandb_run)
+                                   wandb_run=wandb_run, classification=dataset.classification)
 
                   model = model.to("cpu")
 

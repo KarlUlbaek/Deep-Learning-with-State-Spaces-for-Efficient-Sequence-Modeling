@@ -129,8 +129,6 @@ class MambaModel(nn.Module):
         else:
             self.encoder = nn.Linear(d_input, d_model)
 
-        self.decoder = nn.Linear(d_model, d_output)
-
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:
         # Add -> LN -> Attn / MLP / Mixer, returning both the residual branch (output of Add) and
@@ -171,6 +169,15 @@ class MambaModel(nn.Module):
             )
         )
 
+        if self.classification:
+            self.decoder = nn.Linear(d_model, d_output)
+        else:
+            self.decoder = nn.Linear(d_model, vocab_size)
+            # self.tie_weights()
+
+        # def tie_weights(self):
+        #    self.decoder.weight = self.encoder.weight
+
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
         return {
             i: layer.allocate_inference_cache(batch_size, max_seqlen, dtype=dtype, **kwargs)
@@ -198,12 +205,11 @@ class MambaModel(nn.Module):
                 prenorm=False,
                 residual_in_fp32=self.residual_in_fp32,
             )
+
         if self.classification:
             hidden_states = hidden_states.mean(dim=1)
-            return self.decoder(hidden_states)
 
         hidden_states = self.decoder(hidden_states)
-
         return hidden_states
 
 

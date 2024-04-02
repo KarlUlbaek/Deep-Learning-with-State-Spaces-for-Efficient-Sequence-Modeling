@@ -365,6 +365,7 @@ class S4ClassicModel(nn.Module):
       self.d_model, self.d_state, self.n_layer, self.dropout, self.s4 = d_model, d_state, n_layer, dropout, s4_kwargs["mode"]
       self.d_input, self.d_output, self.vocab_size = d_input, d_output, vocab_size
       self.prenorm = prenorm
+
       if vocab_size is not None:
          self.encoder = nn.Embedding(vocab_size, d_model)
       else:
@@ -385,7 +386,14 @@ class S4ClassicModel(nn.Module):
          self.dropouts.append(nn.Dropout1d(dropout))
 
       # Linear decoder
-      self.decoder = nn.Linear(d_model, d_output)
+      if self.classification:
+         self.decoder = nn.Linear(d_model, d_output)
+      else:
+         self.decoder = nn.Linear(d_model, vocab_size)
+         #self.tie_weights()
+
+   # def tie_weights(self):
+   #    self.decoder.weight = self.encoder.weight
 
    def forward(self, x):
       """
@@ -416,7 +424,6 @@ class S4ClassicModel(nn.Module):
       # Pooling: average pooling over the sequence length
       if self.classification:
          x = x.mean(dim=1)
-         return self.decoder(x)
 
       hidden_states = self.decoder(x)
       return hidden_states

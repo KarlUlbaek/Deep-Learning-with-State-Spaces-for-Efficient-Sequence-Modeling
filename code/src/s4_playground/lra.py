@@ -29,6 +29,7 @@ class IMDB(SequenceDataset):
     def init_defaults(self):
         return {
             "l_max": 4096,
+            "classification": True,
             "level": "char",
             "min_freq": 15,
             "seed": 42,
@@ -433,6 +434,7 @@ class PathFinder(ImageResolutionSequenceDataset):
     @property
     def init_defaults(self):
         return {
+            "classification": True,
             "resolution": 32,
             "sequential": True,
             "tokenize": False,
@@ -523,10 +525,11 @@ class AAN(SequenceDataset):
     def init_defaults(self):
         return {
             "l_max": 4000,
+            "classification": False,
             # 'max_vocab': 100, # Full size 98
             "append_bos": False,
             "append_eos": True,
-            "n_workers": 4,  # For tokenizing only
+            "n_workers": 1,  # For tokenizing only
         }
 
     @property
@@ -598,9 +601,9 @@ class AAN(SequenceDataset):
             # return xs1, xs2, ys, lengths1, lengths2
 
             # Concatenate two batches
-            xs = torch.cat([xs1, xs2], dim=0)
-            lengths = torch.cat([lengths1, lengths2], dim=0)
-            return xs, ys, {"lengths": lengths}
+            #xs = torch.cat([xs1, xs2], dim=0)
+            #lengths = torch.cat([lengths1, lengths2], dim=0)
+            return xs1#, ys, {"lengths": lengths}
 
         self._collate_fn = collate_batch
 
@@ -652,15 +655,11 @@ class AAN(SequenceDataset):
         )
         vocab.set_default_index(vocab["<unk>"])
 
-        encode = lambda text: vocab(
-            (["<bos>"] if self.append_bos else [])
-            + text
-            + (["<eos>"] if self.append_eos else [])
+        encode = lambda text: vocab((["<bos>"] if self.append_bos else []) + text + (["<eos>"] if self.append_eos else [])
         )
-        numericalize = lambda example: {
-            "input_ids1": encode(example["tokens1"]),
-            "input_ids2": encode(example["tokens2"]),
-        }
+        numericalize = lambda example: {"input_ids1": encode(example["tokens1"]),
+                                        "input_ids2": encode(example["tokens2"]),
+                                        }
         dataset = dataset.map(
             numericalize,
             remove_columns=["tokens1", "tokens2"],
@@ -705,29 +704,53 @@ if __name__ == "__main__":
     #
     from s4_fork.src.dataloaders.basic import CIFAR10
 
-    import tqdm
+    # "l_max": 4000,
+    # # 'max_vocab': 100, # Full size 98
+    # "append_bos": False,
+    # "append_eos": True,
+    # "n_workers": 1,
+    # import tqdm
+    aan = AAN("aan")
+    aan.append_bos = True
+    aan.append_eos = True
+    #
+    aan.setup()
+    #
+    # for out in tqdm.tqdm(aan.train_dataloader(batch_size=64)):
+    #     print(out.shape)
+    #     pass
 
-    c = CIFAR10("cifar")
-    c.tokenize = True
-    c.grayscale = True
-    c.setup()
-    for d in tqdm.tqdm(c.train_dataloader(batch_size=64, num_workers=6)):
-        print(" ")
+    #aan.eval_dataloader()
+    #aan.test_dataloader()
 
-    d = IMDB("imdb")
-    d.setup()
-    for _ in tqdm.tqdm(d.train_dataloader(batch_size=64, num_workers=6)): pass
-    p = PathFinder("pathfinder")
-    p.tokenize = False
-    p.setup()
-    for val in tqdm.tqdm(p.train_dataloader(batch_size=64, num_workers=6)):
-        print("")
 
-    # d = PathFinderDataset("../../data")
-    # # from torch.utils.data import DataLoader
-    # d = DataLoader(d, batch_size=64, num_workers=6)
-    # for x,y in tqdm.tqdm(d):
-    #     print(x.shape)
-    #     print(y)
-    # #next(iter((d.train_dataloader(batch_size=64))))
-    # print("../../data")
+
+
+    Path
+
+    # import tqdm
+    #
+    # c = CIFAR10("cifar")
+    # c.tokenize = True
+    # c.grayscale = True
+    # c.setup()
+    # for d in tqdm.tqdm(c.train_dataloader(batch_size=64, num_workers=6)):
+    #     print(" ")
+    #
+    # d = IMDB("imdb")
+    # d.setup()
+    # for _ in tqdm.tqdm(d.train_dataloader(batch_size=64, num_workers=6)): pass
+    # p = PathFinder("pathfinder")
+    # p.tokenize = False
+    # p.setup()
+    # for val in tqdm.tqdm(p.train_dataloader(batch_size=64, num_workers=6)):
+    #     print("")
+    #
+    # # d = PathFinderDataset("../../data")
+    # # # from torch.utils.data import DataLoader
+    # # d = DataLoader(d, batch_size=64, num_workers=6)
+    # # for x,y in tqdm.tqdm(d):
+    # #     print(x.shape)
+    # #     print(y)
+    # # #next(iter((d.train_dataloader(batch_size=64))))
+    # # print("../../data")

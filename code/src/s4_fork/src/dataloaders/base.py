@@ -257,7 +257,7 @@ class SequenceDataset(DefaultCollateMixin):
         cls.registry[cls._name_] = cls
 
     def __init__(self, _name_, data_dir=None, **dataset_cfg):
-        assert _name_ == self._name_
+        assert _name_ == self._name_, f"but got {_name_}, {self._name_}"
         self.data_dir = Path(data_dir).absolute() if data_dir is not None else None
 
         # Add all arguments to self

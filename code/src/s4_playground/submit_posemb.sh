@@ -15,9 +15,7 @@
 # please uncomment the following line and put in your e-mail address,
 # if you want to receive e-mail notifications on a non-default address
 ### -- send notification at start --
-#BSUB -B
-### -- send notification at completion--
-#BSUB -N
+
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --
 #BSUB -o gpu_%J.out

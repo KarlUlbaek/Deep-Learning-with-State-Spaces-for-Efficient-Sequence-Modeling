@@ -126,6 +126,60 @@ def data_throughput(data_loader, name, warmup=10, actualrun=50):
    print(f"{name} batch per sec: {t1:.1f}" )
 
 
+from pathlib import Path
+class AAN_tensor_dataset(torch.utils.data.Dataset):
+   def __init__(self, path, split=None):
+      super().__init__()
+      self.n_tokens = 99
+      self.classification = False
+      self.dummy = torch.empty(1)
+      self.d_output = self.n_tokens
+
+      self.path = path
+      if split is not None:
+         self.d = torch.load(Path(path) / "aan/aan_tensor/{}.pt".format(split))
+
+   def __setup__(self):
+      pass
+
+   def __len__(self):
+      return self.d.shape[0]
+
+   def __getitem__(self, idx):
+      return self.d[idx].to(torch.int64), self.dummy
+
+   def train_dataloader(self, batch_size=64, num_workers=0, shuffle=True):
+      return torch.utils.data.DataLoader(AAN_tensor_dataset(self.path, split="train"),
+                                         batch_size=batch_size,
+                                         num_workers=num_workers,
+                                         shuffle=shuffle)
+
+   def test_dataloader(self, batch_size=64, num_workers=0):
+      return torch.utils.data.DataLoader(AAN_tensor_dataset(self.path, split="test"),
+                                         batch_size=batch_size,
+                                         num_workers=num_workers,
+                                         shuffle=True)
+
+   def val_dataloader(self, batch_size=64, num_workers=0):
+      return torch.utils.data.DataLoader(AAN_tensor_dataset(self.path, split="val"),
+                                         batch_size=batch_size,
+                                         num_workers=num_workers,
+                                         shuffle=False)
+
+
+if __name__ == "__main__":
+   import os
+   import tqdm
+
+   print(os.getcwd())
+   a = AAN_tensor_dataset("../../data")
+   for val in tqdm.tqdm(a.train_dataloader()):
+      pass
+
+   for val in tqdm.tqdm(a.val_dataloader()):
+      pass
+   for val in tqdm.tqdm(a.test_dataloader()):
+      pass
 
 # ROOT_data = "../data/cifar10/"
 # class Cifar10seq(Dataset):
