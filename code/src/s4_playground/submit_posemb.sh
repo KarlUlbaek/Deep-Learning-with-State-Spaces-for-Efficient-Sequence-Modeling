@@ -2,13 +2,13 @@
 ### General options
 ### –- specify queue --
 #BSUB -q gpua100
-#BSUB -J weightdecaycifar
+#BSUB -J bidir
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 4
 ### -- Select the resources: 1 gpu in exclusive process mode --
 #BSUB -gpu "num=1:mode=exclusive_process"
 ### -- set walltime limit: hh:mm --  maximum 24 hours for GPU-queues right now
-#BSUB -W 5:00
+#BSUB -W 10:00
 # request 5GB of system-memory
 #BSUB -R "rusage[mem=10GB]"
 ### -- set the email address --
@@ -31,7 +31,7 @@ pwd
 
 source ../12venv/bin/activate
 
-python s4_playground/LRA_s6exp.py
+python s4_playground/LRA_posemb.py
 
 
 

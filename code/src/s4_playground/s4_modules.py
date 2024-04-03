@@ -89,7 +89,7 @@ class FFTConvLean(nn.Module):
 
 
    def forward(self, x):  # absorbs return_output and transformer src mask
-      if self.bi is None:
+      if self.bi == "":
          return self.unidirectional(x)
 
       elif self.bi == "paper_bi":

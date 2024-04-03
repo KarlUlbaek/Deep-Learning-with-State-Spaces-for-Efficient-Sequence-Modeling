@@ -188,31 +188,31 @@ if __name__ == "__main__":
    d_state = 16
    m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                          fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":x})
-                         for x in ["paper_bi", "stacked_bi", "sequential_bi", ""]]
+                         for x in ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied",""]]
 
    d_state = 64
    d_model = 170
    m2 =    [partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
                         d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": x},
                         layernorm=layernorm, prenorm=prenorm)
-                        for x in ["paper_bi", "stacked_bi", "sequential_bi", ""]]
+                        for x in ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied",""]]
 
 
 
    Models = m1+m2#, s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [CIFAR10cont, IMDBtoken]#, CIFAR10cont] AAN_dataset
+   datasets = [CIFAR10cont, CIFAR10cont]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
 
    pos_embs = [{}]
 
    n_epochs = 25
    sched_epochs = int(n_epochs * 1.5)
-   b = 8
+   b = 64
    num_workers = 0
    d = "cuda"
-   lr = 1e-3
+   lr = 3e-3
    lr_scale = 0.1 # 0.1
    weight_decay = 0.01 # 0.01
    #pos_emb = {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"}
