@@ -160,7 +160,7 @@ class FFTConvLean(nn.Module):
       y2 = torch.fft.irfft(x_f * k_f, n=2 * L)[..., :L]
 
       if self.use_feature_mix:
-         y = self.feature_mixer(torch.stack([y1, y2.flip(-1)]))
+         y = self.feature_mixer(torch.cat([y1, y2.flip(-1)], dim=1))
       else:
          y = y1 + y2.flip(-1)
 
@@ -178,7 +178,7 @@ class FFTConvLean(nn.Module):
       y2 = torch.fft.irfft(x2 * k_f, n=2 * L)[..., :L]
 
       if self.use_feature_mix:
-         y = self.feature_mixer(torch.stack([y1, y2.flip(-1)]))
+         y = self.feature_mixer(torch.cat([y1, y2.flip(-1)], dim=1))
       else:
          y = y1 + y2.flip(-1)
 
