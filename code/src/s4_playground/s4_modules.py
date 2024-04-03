@@ -45,6 +45,7 @@ class FFTConvLean(nn.Module):
       transposed=True,
       mode='dplr',
       init='legs',
+      bi = "",
       d_state=64,  # Arguments passed into inner convolution kernel
    ):
       super().__init__()
@@ -53,42 +54,96 @@ class FFTConvLean(nn.Module):
       self.channels = channels
       self.BDL_shape = transposed
       self.D = nn.Parameter(torch.ones((channels, self.d_model, 1), dtype=torch.float))
+      assert bi in ["paper_bi", "stacked_bi", "sequential_bi", ""]
+      if bi != "": print(f"using {bi} bi-kernel")
+      self.bi = bi
 
-      #kernel_args = {"d_state": d_state}
-      #self.D._optim = False  # will get lower learning rate
-      #self.D._no_weight_decay = False  # will not get weight decaay
+
 
       kernel_cls = kernel_registry[mode]
-      self.kernel = kernel_cls(
-         d_model=self.d_model,
-         l_max=self.l_max,
-         channels=channels,
-         init=init,
-         d_state=d_state
-      )
 
-      #dropout_fn = DropoutNd if tie_dropout else nn.Dropout
-      #self.drop = nn.Dropout1d(dropout) if dropout > 0.0 else nn.Identity()
-      #self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0.0 else nn.Identity()
+      if self.bi == "paper_bi":
+         self.kernel = kernel_cls(d_model=self.d_model, l_max=self.l_max,
+                                  channels=channels*2, init=init, d_state=d_state)
+      elif self.bi == "stacked_bi":
+         self.kernel = kernel_cls(d_model=self.d_model*2, l_max=self.l_max,
+                                  channels=channels, init=init, d_state=d_state)
+      elif self.bi == "sequential_bi":
+         self.k1 = kernel_cls(d_model=self.d_model, l_max=self.l_max,
+                                  channels=channels, init=init, d_state=d_state)
+         self.k2 = kernel_cls(d_model=self.d_model, l_max=self.l_max,
+                                  channels=channels, init=init, d_state=d_state)
+      else:
+         self.kernel = kernel_cls(d_model=self.d_model, l_max=self.l_max,
+                                  channels=channels, init=init, d_state=d_state)
+
 
    def forward(self, x):  # absorbs return_output and transformer src mask
-      """
-      x: (B D L) if self.transposed else (B L D)
-      """
-      # Always work with (B D L) dimension in this module
-      L = x.size(-1)
+      if self.bi is None:
+         return self.unidirectional(x)
 
+      elif self.bi == "paper_bi":
+         return self.paper_bi(x)
+
+      elif self.bi == "stacked_bi":
+         return self.stacked_bi(x)
+
+      elif self.bi == "sequential_bi":
+         return self.sequential_bi(x)
+
+
+   def unidirectional(self, x):
+      L = x.size(-1)
       k, _ = self.kernel(L=L)  # (H L)
 
-      # Convolution
-      k_f = torch.fft.rfft(k, n=2 * L)  # (H L)
-      u_f = torch.fft.rfft(x, n=2 * L)  # (B H L)
+      k_f = torch.fft.rfft(k, n=2 * L)  # (1 C L)
+      u_f = torch.fft.rfft(x, n=2 * L)  # (B C L)
       y = torch.fft.irfft(u_f * k_f, n=2 * L)[..., :L]  # (B H L)
 
-      # Compute D term in state space equation - essentially a skip connection
       y = y + x * self.D
+      return y
+
+   def paper_bi(self, x):
+      L = x.size(-1)
+      k, _ = self.kernel(L=L)  # (H L)
+
+      k0, k1 = rearrange(k, '(s c) h l -> s c h l', s=2)
+      k = F.pad(k0, (0, L)) + F.pad(k1.flip(-1), (L, 0))
+
+      k_f = torch.fft.rfft(k, n=2 * L)  # (H L)
+      x_f = torch.fft.rfft(x, n=2 * L)  # (B H L)
+      y_f = torch.einsum('bhl,chl->bchl', x_f, k_f)
+      y = (torch.fft.irfft(y_f, n=2 * L)[..., :L]).squeeze()  # (B C H L)
+      return y
+
+   def stacked_bi(self, x):
+      b, c, L = x.shape
+      k, _ = self.kernel(L=L)
+
+      x_new = torch.cat([x, x.flip(-1)], dim=-2)
+      k_f = torch.fft.rfft(k, n=2 * L)  # (H L)
+      x_f = torch.fft.rfft(x_new, n=2 * L)  # (B H L)
+      y = torch.fft.irfft(x_f * k_f, n=2 * L)[..., :L]
+      y = y[:, :c, :] + y[:, c:, :].flip(-1)
+      return y
+
+   def sequential_bi(self, x):
+      b, c, L = x.shape
+      k1, _ = self.k1(L=L)
+      k_f = torch.fft.rfft(k1, n=2 * L)  # (1, H L)
+      x_f = torch.fft.rfft(x, n=2 * L)  # (B H L)
+      y1 = torch.fft.irfft(x_f * k_f, n=2 * L)[..., :L]
+
+      k2, _ = self.k2(L=L)
+      k_f = torch.fft.rfft(k2, n=2 * L)  # (1, H L)
+      x_f = torch.fft.rfft(x.flip(-1), n=2 * L)  # (B H L)
+      y2 = torch.fft.irfft(x_f * k_f, n=2 * L)[..., :L]
+
+      y = y1 + y2.flip(-1)
 
       return y
+
+
 
 
 class s4MambaModule(nn.Module):
@@ -365,6 +420,7 @@ class S4ClassicModel(nn.Module):
       self.d_model, self.d_state, self.n_layer, self.dropout, self.s4 = d_model, d_state, n_layer, dropout, s4_kwargs["mode"]
       self.d_input, self.d_output, self.vocab_size = d_input, d_output, vocab_size
       self.prenorm = prenorm
+      self.s4_kwargs = s4_kwargs
 
       if vocab_size is not None:
          self.encoder = nn.Embedding(vocab_size, d_model)

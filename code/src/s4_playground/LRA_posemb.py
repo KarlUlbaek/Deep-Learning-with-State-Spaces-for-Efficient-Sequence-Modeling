@@ -136,7 +136,7 @@ if __name__ == "__main__":
    n_layer = 6
    d_model = 116
    d_state = 16
-   dropout = 0.0
+   dropout = 0.1
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast)
 
@@ -171,10 +171,10 @@ if __name__ == "__main__":
    data.setup("../data/cifar10")
    CIFAR10token = deepcopy(data)
    #
-   # data = IMDB("imdb")
-   # data.l_max = 1024
-   # data.setup("../data")
-   # IMDBtoken = deepcopy(data)
+   data = IMDB("imdb")
+   data.l_max = 1024
+   data.setup("../data")
+   IMDBtoken = deepcopy(data)
    # #
    # data = PathFinder("pathfinder")
    # data.setup("../data")
@@ -184,23 +184,35 @@ if __name__ == "__main__":
    # data.setup("../data")
    # #data.setup("../data")
    # Pathfindertoken = deepcopy(data)
+   d_model = 116
+   d_state = 16
+   m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":x})
+                         for x in ["paper_bi", "stacked_bi", "sequential_bi", ""]]
+
+   d_state = 64
+   d_model = 170
+   m2 =    [partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
+                        d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": x},
+                        layernorm=layernorm, prenorm=prenorm)
+                        for x in ["paper_bi", "stacked_bi", "sequential_bi", ""]]
 
 
-   Models = [s4dClassic, s4dMamba, s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+
+   Models = m1+m2#, s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [AAN_dataset]#, CIFAR10cont] AAN_dataset
+   datasets = [CIFAR10cont, IMDBtoken]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
 
-   pos_embs = [{},
-               {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"}]
+   pos_embs = [{}]
 
-   n_epochs = 2
+   n_epochs = 25
    sched_epochs = int(n_epochs * 1.5)
-   b = 64
+   b = 8
    num_workers = 0
    d = "cuda"
-   lr = 3e-3
+   lr = 1e-3
    lr_scale = 0.1 # 0.1
    weight_decay = 0.01 # 0.01
    #pos_emb = {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"}
@@ -210,7 +222,7 @@ if __name__ == "__main__":
    test_throughput = True
    run_test_run = True
    wandb_logging = True
-   wandb_name = "pertest" #""
+   wandb_name = "bi_test" #""
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
@@ -249,7 +261,7 @@ if __name__ == "__main__":
                   model = Model(d_input=d_input, d_output=d_output, pos_emb=pos_emb, vocab_size=vocab_size,
                                 classification=dataset.classification)
                   m_name, n_params = print_model_stats(model)
-                  m_name += str(list(pos_emb.values()))
+                  m_name += str(list(pos_emb.values())) + model.s4_kwargs.get("bi", "")
                   model = model.to(d)
                   #print(model)
                   optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay)
