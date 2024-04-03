@@ -6,7 +6,7 @@
       <sourceFolder url="file://$MODULE_DIR$/code/src/mamba_fork" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/code/src/s4_fork/extensions/kernels" isTestSource="false" />
     </content>
-    <orderEntry type="jdk" jdkName="12env" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.10" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

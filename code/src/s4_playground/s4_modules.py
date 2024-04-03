@@ -46,6 +46,7 @@ class FFTConvLean(nn.Module):
       mode='dplr',
       init='legs',
       bi = "",
+      use_feature_mix = "",
       d_state=64,  # Arguments passed into inner convolution kernel
    ):
       super().__init__()
@@ -54,9 +55,10 @@ class FFTConvLean(nn.Module):
       self.channels = channels
       self.BDL_shape = transposed
       self.D = nn.Parameter(torch.ones((channels, self.d_model, 1), dtype=torch.float))
-      assert bi in ["paper_bi", "stacked_bi", "sequential_bi", ""]
+      assert bi in ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", ""]
       if bi != "": print(f"using {bi} bi-kernel")
       self.bi = bi
+      self.use_feature_mix = use_feature_mix
 
 
 
@@ -73,9 +75,17 @@ class FFTConvLean(nn.Module):
                                   channels=channels, init=init, d_state=d_state)
          self.k2 = kernel_cls(d_model=self.d_model, l_max=self.l_max,
                                   channels=channels, init=init, d_state=d_state)
+
+      elif self.bi == "sequential_bi_tied":
+         self.kernel = kernel_cls(d_model=self.d_model, l_max=self.l_max,
+                                  channels=channels, init=init, d_state=d_state)
+
       else:
          self.kernel = kernel_cls(d_model=self.d_model, l_max=self.l_max,
                                   channels=channels, init=init, d_state=d_state)
+
+      if self.use_feature_mix:
+         self.feature_mixer = nn.Conv1d(self.d_model*2, self.d_model, kernel_size=1)
 
 
    def forward(self, x):  # absorbs return_output and transformer src mask
@@ -90,6 +100,12 @@ class FFTConvLean(nn.Module):
 
       elif self.bi == "sequential_bi":
          return self.sequential_bi(x)
+
+      elif self.bi == "sequential_bi_tied":
+         return self.sequential_bi_tied(x)
+
+      else:
+         raise IndexError
 
 
    def unidirectional(self, x):
@@ -124,7 +140,11 @@ class FFTConvLean(nn.Module):
       k_f = torch.fft.rfft(k, n=2 * L)  # (H L)
       x_f = torch.fft.rfft(x_new, n=2 * L)  # (B H L)
       y = torch.fft.irfft(x_f * k_f, n=2 * L)[..., :L]
-      y = y[:, :c, :] + y[:, c:, :].flip(-1)
+      if self.use_feature_mix:
+         y[:, c:, :] = y[:, c:, :].flip(-1) # might not work
+         y = self.feature_mixer(y)
+      else:
+         y = y[:, :c, :] + y[:, c:, :].flip(-1)
       return y
 
    def sequential_bi(self, x):
@@ -139,9 +159,32 @@ class FFTConvLean(nn.Module):
       x_f = torch.fft.rfft(x.flip(-1), n=2 * L)  # (B H L)
       y2 = torch.fft.irfft(x_f * k_f, n=2 * L)[..., :L]
 
-      y = y1 + y2.flip(-1)
+      if self.use_feature_mix:
+         y = self.feature_mixer(torch.stack([y1, y2.flip(-1)]))
+      else:
+         y = y1 + y2.flip(-1)
 
       return y
+
+   def sequential_bi_tied(self,x):
+      b, c, L = x.shape
+      k, _ = self.kernel(L=L)
+      k_f = torch.fft.rfft(k, n=2 * L)  # (1, H L)
+
+      x1 = torch.fft.rfft(x, n=2 * L)  # (B H L)
+      x2 = torch.fft.rfft(x.flip(-1), n=2 * L)  # (B H L)
+
+      y1 = torch.fft.irfft(x1 * k_f, n=2 * L)[..., :L]
+      y2 = torch.fft.irfft(x2 * k_f, n=2 * L)[..., :L]
+
+      if self.use_feature_mix:
+         y = self.feature_mixer(torch.stack([y1, y2.flip(-1)]))
+      else:
+         y = y1 + y2.flip(-1)
+
+      return y
+
+
 
 
 
