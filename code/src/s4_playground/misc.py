@@ -89,12 +89,13 @@ def model_throughput(model, vocab_size, d_input, b=64, L=1000, reps=10):
 
    # farward
    torch.cuda.reset_peak_memory_stats()
-   t0 = time.perf_counter()
-   for _ in range(reps):
-      model(batch)
-   torch.cuda.synchronize()
-   t1 = (time.perf_counter() - t0) / reps
-   mem1 = torch.cuda.max_memory_allocated()
+   with torch.no_grad():
+      t0 = time.perf_counter()
+      for _ in range(reps):
+         model(batch)
+      torch.cuda.synchronize()
+      t1 = (time.perf_counter() - t0) / reps
+      mem1 = torch.cuda.max_memory_allocated()
 
    # backward
    model = model.train()

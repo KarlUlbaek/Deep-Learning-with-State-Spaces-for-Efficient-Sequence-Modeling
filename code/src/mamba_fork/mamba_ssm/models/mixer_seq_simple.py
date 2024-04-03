@@ -123,6 +123,7 @@ class MambaModel(nn.Module):
         self.d_model, self.d_state, self.n_layer, self.dropout = d_model, d_state, n_layer, dropout
         self.d_input, self.d_output, self.vocab_size= d_input, d_output, vocab_size
         self.s4 = "s6" if not bool(s4_kwargs) else s4_kwargs["mode"]
+        self.s4_kwargs = s4_kwargs
 
         if vocab_size:
             self.encoder = nn.Embedding(vocab_size, d_model)
