@@ -2,7 +2,7 @@
 ### General options
 ### –- specify queue --
 #BSUB -q gpua100
-#BSUB -J perplex exp
+#BSUB -J weightdecaycifar
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 4
 ### -- Select the resources: 1 gpu in exclusive process mode --
@@ -31,7 +31,7 @@ pwd
 
 source ../12venv/bin/activate
 
-python s4_playground/LRA_posemb.py
+python s4_playground/LRA_s6exp.py
 
 
 
