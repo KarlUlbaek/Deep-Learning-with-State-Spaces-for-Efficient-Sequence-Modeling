@@ -34,17 +34,18 @@ def create_block(
     fused_add_norm=False,
     layer_idx=None,
     s4_kwargs = None, # {mode:"dplr", hippo_init ="legs"}
-    pos_emb={}
+    pos_emb={},
+    bi=""
 ):
     # if ssm_cfg is None:
     #     ssm_cfg = {}
     #
     # factory_kwargs = {"device": device, "dtype": dtype}
     if not bool(s4_kwargs):
-        if not bool(pos_emb):
+        if not bool(pos_emb) and not bool(bi):
             mixer_cls = partial(S6MambaModule, dropout=dropout, layer_idx=layer_idx)#, **ssm_cfg, **factory_kwargs)
         else:
-            mixer_cls = partial(S6MambaModulePosEmb, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb)#, **ssm_cfg, **factory_kwargs)
+            mixer_cls = partial(S6MambaModulePosEmb, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb, bi=bi)#, **ssm_cfg, **factory_kwargs)
     else:
         mixer_cls = partial(s4MambaModule, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb, s4_kwargs=s4_kwargs)#, **ssm_cfg, **factory_kwargs)
 
@@ -113,7 +114,8 @@ class MambaModel(nn.Module):
         fused_add_norm=False,
         residual_in_fp32=True,
         s4_kwargs = None,  # {mode:"dplr", hippo_init ="legs"}
-        pos_emb = {}
+        pos_emb = {},
+        bi=""
 
     ) -> None:
         #factory_kwargs = {"device": device, "dtype": dtype}
@@ -152,7 +154,8 @@ class MambaModel(nn.Module):
                     fused_add_norm=fused_add_norm,
                     layer_idx=i,
                     s4_kwargs=s4_kwargs,  # {mode:"dplr", hippo_init ="legs"}
-                    pos_emb=pos_emb
+                    pos_emb=pos_emb,
+                    bi = bi
                 )
                 for i in range(n_layer)
             ]

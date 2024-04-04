@@ -2,6 +2,7 @@
 
 import math
 from typing import Optional
+from copy import deepcopy
 
 import torch
 import torch.nn as nn
@@ -347,6 +348,7 @@ class S6MambaModulePosEmb(nn.Module):
         device=None,
         dtype=None,
         pos_emb={},
+        bi = ""
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -358,6 +360,7 @@ class S6MambaModulePosEmb(nn.Module):
         self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
         self.use_fast_path = use_fast_path
         self.layer_idx = layer_idx
+        self.bi = bi
 
         self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
         self.conv1d = nn.Conv1d(
@@ -369,7 +372,7 @@ class S6MambaModulePosEmb(nn.Module):
             padding=d_conv - 1,
             **factory_kwargs,
         )
-
+        self.bi = bi
         self.activation = "silu"
         self.act = nn.SiLU()
 
@@ -442,6 +445,11 @@ class S6MambaModulePosEmb(nn.Module):
                         print("using pos embeddings at {}".format(letter))
 
             self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_inner, **pos_emb, BDL_shape=True)
+        if self.bi:
+            if self.layer_idx == 0: print("using bidirectional s6")
+            self.A2 = deepcopy(self.A_log)
+            self.D2 = nn.Parameter(torch.ones(self.d_inner, device=device))
+
 
     def forward(self, hidden_states, inference_params=None):
         """
@@ -525,6 +533,22 @@ class S6MambaModulePosEmb(nn.Module):
             delta_softplus=True,
             return_last_state=ssm_state is not None,
         )
+        if self.bi:
+            y2 = selective_scan_fn(
+                x.flip(-1),
+                dt.flip(-1),
+                self.A2,
+                B.flip(-1),
+                C.flip(-1),
+                self.D2.float(),
+                z=z.flip(-1),
+                delta_bias=self.dt_proj.bias.float(),
+                delta_softplus=True,
+                return_last_state=ssm_state is not None,
+            )
+            y += y2.flip(-1)
+
+
         if ssm_state is not None:
             y, last_state = y
             ssm_state.copy_(last_state)
