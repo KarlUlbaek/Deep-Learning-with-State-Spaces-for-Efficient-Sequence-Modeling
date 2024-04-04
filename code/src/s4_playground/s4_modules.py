@@ -55,7 +55,7 @@ class FFTConvLean(nn.Module):
       self.channels = channels
       self.BDL_shape = transposed
       self.D = nn.Parameter(torch.ones((channels, self.d_model, 1), dtype=torch.float))
-      assert bi in ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", ""]
+      assert bi in ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", ""]
       if bi != "": print(f"using {bi} bi-kernel")
       self.bi = bi
       self.use_feature_mix = use_feature_mix
@@ -76,13 +76,11 @@ class FFTConvLean(nn.Module):
          self.k2 = kernel_cls(d_model=self.d_model, l_max=self.l_max,
                                   channels=channels, init=init, d_state=d_state)
 
-      elif self.bi == "sequential_bi_tied":
+      elif self.bi in ["sequential_bi_tied", "half_dim_bi", ""]:
          self.kernel = kernel_cls(d_model=self.d_model, l_max=self.l_max,
                                   channels=channels, init=init, d_state=d_state)
-
       else:
-         self.kernel = kernel_cls(d_model=self.d_model, l_max=self.l_max,
-                                  channels=channels, init=init, d_state=d_state)
+         raise IndexError
 
       if self.use_feature_mix:
          self.feature_mixer = nn.Conv1d(self.d_model*2, self.d_model, kernel_size=1)
@@ -90,19 +88,22 @@ class FFTConvLean(nn.Module):
 
    def forward(self, x):  # absorbs return_output and transformer src mask
       if self.bi == "":
-         return self.unidirectional(x)
+         return self.unidirectional(x) + x * self.D
 
       elif self.bi == "paper_bi":
-         return self.paper_bi(x)
+         return self.paper_bi(x) + x * self.D
 
       elif self.bi == "stacked_bi":
-         return self.stacked_bi(x)
+         return self.stacked_bi(x) + x * self.D
 
       elif self.bi == "sequential_bi":
-         return self.sequential_bi(x)
+         return self.sequential_bi(x) + x * self.D
 
       elif self.bi == "sequential_bi_tied":
-         return self.sequential_bi_tied(x)
+         return self.sequential_bi_tied(x) + x * self.D
+
+      elif self.bi == "half_dim_bi":
+         return self.half_dim_bi(x) + x * self.D
 
       else:
          raise IndexError
@@ -116,7 +117,19 @@ class FFTConvLean(nn.Module):
       u_f = torch.fft.rfft(x, n=2 * L)  # (B C L)
       y = torch.fft.irfft(u_f * k_f, n=2 * L)[..., :L]  # (B H L)
 
-      y = y + x * self.D
+      return y
+
+   def half_dim_bi(self, x):
+      L = x.size(-1)
+      k, _ = self.kernel(L=L)  # (H L)
+
+      halv_dim = int(self.d_model/2)
+      x[:, :halv_dim, :] = x[:, :halv_dim, :].flip(-1)
+      k_f = torch.fft.rfft(k, n=2 * L)  # (1 C L)
+      u_f = torch.fft.rfft(x, n=2 * L)  # (B C L)
+      y = torch.fft.irfft(u_f * k_f, n=2 * L)[..., :L]  # (B H L)
+
+      y[:, :halv_dim, :] = y[:, :halv_dim, :].flip(-1)
       return y
 
    def paper_bi(self, x):

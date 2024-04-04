@@ -186,23 +186,24 @@ if __name__ == "__main__":
    # Pathfindertoken = deepcopy(data)
    d_model = 116
    d_state = 16
+   all_bi = ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", ""]
    m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                          fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":x})
-                         for x in ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied",""]]
+                         for x in all_bi]
 
    d_state = 64
    d_model = 170
    m2 =    [partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
                         d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": x},
                         layernorm=layernorm, prenorm=prenorm)
-                        for x in ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied",""]]
+                        for x in all_bi]
 
 
 
    Models = m1+m2#, s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [CIFAR10cont, CIFAR10cont]#, CIFAR10cont] AAN_dataset
+   datasets = [CIFAR10cont]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
 
    pos_embs = [{}]
@@ -222,7 +223,7 @@ if __name__ == "__main__":
    test_throughput = True
    run_test_run = True
    wandb_logging = True
-   wandb_name = "bi_test" #""
+   wandb_name = "_bi_test_v2" #""
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
