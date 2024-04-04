@@ -140,9 +140,6 @@ if __name__ == "__main__":
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast)
 
-   s4Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast, s4_kwargs={"dplr": "diag", "init": "legs"})
-
    s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
 
@@ -150,10 +147,7 @@ if __name__ == "__main__":
    d_model = 170
    layernorm = True # = True means layernorm and not RMS
    prenorm = False # =
-   # s4Classic  = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
-   #                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "dplr", "init": "legs"},
-   #                      layernorm=layernorm, prenorm=prenorm)
-   s4dClassic = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
+   s4dClassic = partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
                         d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"},
                         layernorm=layernorm, prenorm=prenorm)
 
@@ -193,7 +187,7 @@ if __name__ == "__main__":
 
    d_state = 64
    d_model = 170
-   m2 =    [partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
+   m2 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
                         d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": x},
                         layernorm=layernorm, prenorm=prenorm)
                         for x in all_bi]
