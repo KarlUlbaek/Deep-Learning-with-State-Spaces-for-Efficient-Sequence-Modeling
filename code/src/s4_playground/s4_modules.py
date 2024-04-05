@@ -531,20 +531,20 @@ class S4ClassicModel(nn.Module):
       x = self.encoder(x)  # (B, L, d_input) -> (B, L, d_model)
 
       #print(self.NotMambaShape)
-      x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
+      x = x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
       for layer_idx, (layer, norm, dropout) in enumerate(zip(self.layers, self.norms, self.dropouts)):
          # Each iteration of this loop will map (B, d_model, L) -> (B, d_model, L)
 
-         residuals = x
+         res = x
          if self.prenorm:
-            norm(residuals.transpose(-1, -2)).transpose(-1, -2)
+            res = norm(res.transpose(-1, -2)).transpose(-1, -2)
 
-         residuals = layer(residuals)
-         residuals = dropout(residuals)
-         x = x + residuals
+         res = layer(res)
+         res = dropout(res)
+         x = x + res
 
          if not self.prenorm:
-            norm(x.transpose(-1, -2)).transpose(-1, -2)
+            x = norm(x.transpose(-1, -2)).transpose(-1, -2)
 
       x = x.transpose(-1, -2)
 
