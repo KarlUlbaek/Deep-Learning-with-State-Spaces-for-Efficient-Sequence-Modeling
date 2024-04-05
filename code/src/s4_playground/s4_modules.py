@@ -41,6 +41,34 @@ class unidirectional(nn.Module):
       y += x * self.D
       return y
 
+class unidirectional_placebo(nn.Module):
+   def __init__(self, kernel_cls, d_model, d_state, channels, l_max, init):
+      super().__init__()
+      self.name = "unidirectional_placebo"
+      self.D = nn.Parameter(torch.ones((channels, d_model, 1), dtype=torch.float))
+      self.k1 = kernel_cls(d_model=d_model, l_max=l_max,
+                                  channels=channels, init=init, d_state=d_state)
+      self.k2 = kernel_cls(d_model=d_model, l_max=l_max,
+                                  channels=channels, init=init, d_state=d_state)
+   def forward(self, x):
+      b, c, L = x.shape
+      k1, _ = self.k1(L=L)
+      k_f = torch.fft.rfft(k1, n=2 * L)  # (1, H L)
+      x_f = torch.fft.rfft(x, n=2 * L)  # (B H L)
+      y1 = torch.fft.irfft(x_f * k_f, n=2 * L)[..., :L]
+
+      k2, _ = self.k2(L=L)
+      k_f = torch.fft.rfft(k2, n=2 * L)  # (1, H L)
+      y2 = torch.fft.irfft(x_f * k_f, n=2 * L)[..., :L]
+
+      # if self.use_feature_mix:
+      #    y = self.feature_mixer(torch.cat([y1, y2.flip(-1)], dim=1))
+      # else:
+      y = y1 + y2
+
+      y += x * self.D
+      return y
+
 class sequential_bi_tied(nn.Module):
    def __init__(self, kernel_cls, d_model, d_state, channels, l_max, init):
       super().__init__()
@@ -173,6 +201,7 @@ direction_registry = {
       "sequential_bi":sequential_bi,
       "sequential_bi_tied":sequential_bi_tied,
       "half_dim_bi":half_dim_bi,
+      "placebo": unidirectional_placebo,
       "": unidirectional
 }
 class FFTConvLean(nn.Module):
@@ -207,8 +236,8 @@ class FFTConvLean(nn.Module):
       self.channels = channels
       self.BDL_shape = transposed
 
-      assert bi in ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", ""]
-      if bi != "": print(f"using {bi} bi-kernel")
+      assert bi in ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", "", "placebo"]
+      if bi != "": print(f"using {bi} kernel")
       self.bi = bi
       #self.use_feature_mix = use_feature_mix
 

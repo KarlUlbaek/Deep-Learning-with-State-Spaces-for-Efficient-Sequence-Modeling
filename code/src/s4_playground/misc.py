@@ -28,7 +28,7 @@ def setup_optimizer(model, opt=AdamW, Sched=CosSched, lr=1e-3, lr_scale = 0.1, w
 from s4_playground.rope_fork import RotaryEmbedding
 
 class RotaryEmbeddingCustom(torch.nn.Module):
-   def __init__(self, d_model , loc="all", BDL_shape=True, theta=10, seq_norm=None, learned_freq=False, b_c_dt_x=None):
+   def __init__(self, d_model , loc="all", BDL_shape=True, theta=10_100, seq_norm=None, learned_freq=False, b_c_dt_x=None):
       super().__init__()
       # b_c_dt_x is only used by s6mamba and actually not even in here
 

@@ -180,32 +180,31 @@ if __name__ == "__main__":
    # Pathfindertoken = deepcopy(data)
    d_model = 116
    d_state = 16
-   all_bi = ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", ""]
-   m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":x})
-                         for x in all_bi]
+   #bi = ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", "", "placebo"]
+   #bi = ["sequential_bi", "half_dim_bi", ""]
+   m1 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"placebo"})
 
-   d_state = 64
-   d_model = 170
-   m2 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
-                        d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": x},
-                        layernorm=layernorm, prenorm=prenorm)
-                        for x in all_bi]
+   m2 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                  fused_add_norm=fast, rms_norm=fast,
+                  s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"},
+                  pos_emb = {"loc":"all"})
 
+   m3 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                  fused_add_norm=fast, rms_norm=fast,
+                  bi_s6 = {"bi":"bi"},
+                  pos_emb = {"loc":"all", "b_c_dt_x":"b_c_dt"})
 
-   n_layer = 6
-   d_model = 116
-   d_state = 16
-   dropout = 0.1
-   s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast, bi_s6=False)
-
-   Models = [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast, bi_s6={"bi":True}),
-             partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast, bi_s6={})
-             ]#, s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+   # d_state = 64
+   # d_model = 170
+   # m2 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
+   #                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": x},
+   #                      layernorm=layernorm, prenorm=prenorm)
+   #                      for x in bi]
+   #s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
+
+   Models = [m1, m2, m3]
 
    datasets = [CIFAR10cont, IMDBtoken]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
