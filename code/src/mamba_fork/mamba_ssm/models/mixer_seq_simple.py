@@ -33,19 +33,19 @@ def create_block(
     residual_in_fp32=False,
     fused_add_norm=False,
     layer_idx=None,
-    s4_kwargs = None, # {mode:"dplr", hippo_init ="legs"}
+    s4_kwargs ={}, # {mode:"dplr", hippo_init ="legs"}
     pos_emb={},
-    bi=""
+    bi_s6={}
 ):
     # if ssm_cfg is None:
     #     ssm_cfg = {}
     #
     # factory_kwargs = {"device": device, "dtype": dtype}
     if not bool(s4_kwargs):
-        if not bool(pos_emb) and not bool(bi):
+        if not bool(pos_emb) and not bool(bi_s6):
             mixer_cls = partial(S6MambaModule, dropout=dropout, layer_idx=layer_idx)#, **ssm_cfg, **factory_kwargs)
         else:
-            mixer_cls = partial(S6MambaModulePosEmb, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb, bi=bi)#, **ssm_cfg, **factory_kwargs)
+            mixer_cls = partial(S6MambaModulePosEmb, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb, bi=bi_s6)#, **ssm_cfg, **factory_kwargs)
     else:
         mixer_cls = partial(s4MambaModule, dropout=dropout, layer_idx=layer_idx, pos_emb=pos_emb, s4_kwargs=s4_kwargs)#, **ssm_cfg, **factory_kwargs)
 
@@ -113,9 +113,9 @@ class MambaModel(nn.Module):
         initializer_cfg=None,
         fused_add_norm=False,
         residual_in_fp32=True,
-        s4_kwargs = None,  # {mode:"dplr", hippo_init ="legs"}
+        s4_kwargs = {},  # {mode:"dplr", hippo_init ="legs"}
         pos_emb = {},
-        bi=""
+        bi_s6={} # {"bi":True}
 
     ) -> None:
         #factory_kwargs = {"device": device, "dtype": dtype}
@@ -126,6 +126,7 @@ class MambaModel(nn.Module):
         self.d_input, self.d_output, self.vocab_size= d_input, d_output, vocab_size
         self.s4 = "s6" if not bool(s4_kwargs) else s4_kwargs["mode"]
         self.s4_kwargs = s4_kwargs
+        self.bi_s6 = bi_s6
 
         if vocab_size:
             self.encoder = nn.Embedding(vocab_size, d_model)
@@ -155,7 +156,7 @@ class MambaModel(nn.Module):
                     layer_idx=i,
                     s4_kwargs=s4_kwargs,  # {mode:"dplr", hippo_init ="legs"}
                     pos_emb=pos_emb,
-                    bi = bi
+                    bi_s6= bi_s6
                 )
                 for i in range(n_layer)
             ]

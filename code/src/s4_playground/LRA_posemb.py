@@ -138,7 +138,7 @@ if __name__ == "__main__":
    d_state = 16
    dropout = 0.1
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast)
+                     fused_add_norm=fast, rms_norm=fast, bi_s6=False)
 
    s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
@@ -193,11 +193,21 @@ if __name__ == "__main__":
                         for x in all_bi]
 
 
+   n_layer = 6
+   d_model = 116
+   d_state = 16
+   dropout = 0.1
+   s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                     fused_add_norm=fast, rms_norm=fast, bi_s6=False)
 
-   Models = m1+m2#, s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+   Models = [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                     fused_add_norm=fast, rms_norm=fast, bi_s6={"bi":True}),
+             partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                     fused_add_norm=fast, rms_norm=fast, bi_s6={})
+             ]#, s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [CIFAR10cont]#, CIFAR10cont] AAN_dataset
+   datasets = [CIFAR10cont, IMDBtoken]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
 
    pos_embs = [{}]
@@ -219,7 +229,7 @@ if __name__ == "__main__":
    wandb_logging = True
    wandb_name = "_bi_test_v2" #""
    date_name_add = ""
-   model_name_add = "+LN"
+   model_name_add = ""
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
@@ -257,8 +267,11 @@ if __name__ == "__main__":
                   print(f"\n Running on {d_name}")
                   model = Model(d_input=d_input, d_output=d_output, pos_emb=pos_emb, vocab_size=vocab_size,
                                 classification=dataset.classification)
+
                   m_name, n_params = print_model_stats(model)
                   m_name += model_name_add + str(list(pos_emb.values())) + model.s4_kwargs.get("bi", "")
+                  if hasattr(model, "bi_s6"): m_name = m_name+"_bi" if model.bi_s6.get("bi", 0) else m_name
+                  print(m_name)
                   model = model.to(d)
                   #print(model)
                   optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay)
