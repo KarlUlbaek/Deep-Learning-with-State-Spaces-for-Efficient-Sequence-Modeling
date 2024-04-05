@@ -172,7 +172,8 @@ direction_registry = {
       "stacked_bi":stacked_bi,
       "sequential_bi":sequential_bi,
       "sequential_bi_tied":sequential_bi_tied,
-      "half_dim_bi":half_dim_bi
+      "half_dim_bi":half_dim_bi,
+      "": unidirectional
 }
 class FFTConvLean(nn.Module):
    """Implements an FFT Convolution around a convolution kernel.
