@@ -24,6 +24,30 @@ except ImportError:
     RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
 
+class BiModule(nn.Module):
+   def __init__(self, partial_model, d_model, d_state,
+                d_model_scale, d_state_scale, placebo = False):
+      super().__init__()
+      self.placebo = placebo
+      self.forward_model = partial_model(d_model=int(d_model*d_model_scale),
+                                         n_state=int(d_state * d_state_scale))
+
+      self.backward_model = partial_model(d_model=int(d_model*d_model_scale),
+                                          n_state=int(d_state * d_state_scale))
+
+   def forward(self, x):
+      if not self.placebo:
+          forward = self.forward_model(x)
+          backward = self.backward_model(x.flip(-2))
+
+          return forward + backward.flip(-2)
+      else:
+          forward = self.forward_model(x)
+          backward = self.backward_model(x)
+
+          return forward + backward
+
+
 def create_block(
     d_model,
     d_state,
@@ -35,7 +59,8 @@ def create_block(
     layer_idx=None,
     s4_kwargs ={}, # {mode:"dplr", hippo_init ="legs"}
     pos_emb={},
-    bi_s6={}
+    bi_s6={},
+    bi_module={}#{"d_model_scale": 0.66, "n_state_scale": 1.0}
 ):
     # if ssm_cfg is None:
     #     ssm_cfg = {}
@@ -52,9 +77,18 @@ def create_block(
     norm_cls = partial(
         nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon)#, **factory_kwargs
     #)
+    if bi_module:
+        assert not bi_s6, "s6 SSP is already birectional"
+        assert ""==s4_kwargs.get("bi", ""), "s4 SSP is already {}".format(s4_kwargs.get("bi", 0))
+        mixer_cls = BiModule(partial_model=mixer_cls, d_model=d_model, d_state=d_state,
+                             **bi_module)
+        norm_cls = norm_cls(d_model=int(d_model*bi_module["d_model_scale"]))
+    else:
+        mixer_cls = mixer_cls(d_model=d_model, d_state=d_state)
+        norm_cls = norm_cls(d_model=d_model)
+
+
     block = MambaBlock(
-        d_model=d_model,
-        d_state=d_state,
         mixer_cls=mixer_cls,
         norm_cls=norm_cls,
         fused_add_norm=fused_add_norm,
@@ -115,7 +149,8 @@ class MambaModel(nn.Module):
         residual_in_fp32=True,
         s4_kwargs = {},  # {mode:"dplr", hippo_init ="legs"}
         pos_emb = {},
-        bi_s6={} # {"bi":True}
+        bi_s6={}, # {"bi":True}
+        bi_module = {}
 
     ) -> None:
         #factory_kwargs = {"device": device, "dtype": dtype}
@@ -127,6 +162,7 @@ class MambaModel(nn.Module):
         self.s4 = "s6" if not bool(s4_kwargs) else s4_kwargs["mode"]
         self.s4_kwargs = s4_kwargs
         self.bi_s6 = bi_s6
+        self.bi_module = bi_module
 
         if vocab_size:
             self.encoder = nn.Embedding(vocab_size, d_model)
@@ -156,7 +192,8 @@ class MambaModel(nn.Module):
                     layer_idx=i,
                     s4_kwargs=s4_kwargs,  # {mode:"dplr", hippo_init ="legs"}
                     pos_emb=pos_emb,
-                    bi_s6= bi_s6
+                    bi_s6= bi_s6,
+                    bi_module = bi_module
                 )
                 for i in range(n_layer)
             ]

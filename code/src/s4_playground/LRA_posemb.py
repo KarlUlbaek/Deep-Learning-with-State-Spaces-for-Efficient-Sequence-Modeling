@@ -182,18 +182,22 @@ if __name__ == "__main__":
    d_state = 16
    #bi = ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", "", "placebo"]
    #bi = ["sequential_bi", "half_dim_bi", ""]
+   #bi_module = {"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": False}
+   # m1 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+   #                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
    m1 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"placebo"})
-
+                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
+                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": False})
    m2 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                  fused_add_norm=fast, rms_norm=fast,
-                  s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"},
-                  pos_emb = {"loc":"all"})
+                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
+                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": True})
 
    m3 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                  fused_add_norm=fast, rms_norm=fast,
-                  bi_s6 = {"bi":"bi"},
-                  pos_emb = {"loc":"all", "b_c_dt_x":"b_c_dt"})
+                         fused_add_norm=fast, rms_norm=fast,
+                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": False})
+   m4 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                         fused_add_norm=fast, rms_norm=fast,
+                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": True})
 
    # d_state = 64
    # d_model = 170
@@ -204,7 +208,7 @@ if __name__ == "__main__":
    #s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   Models = [m1, m2, m3]
+   Models = [m1, m2, m3, m4]
 
    datasets = [CIFAR10cont, IMDBtoken]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
@@ -270,6 +274,10 @@ if __name__ == "__main__":
                   m_name, n_params = print_model_stats(model)
                   m_name += model_name_add + str(list(pos_emb.values())) + model.s4_kwargs.get("bi", "")
                   if hasattr(model, "bi_s6"): m_name = m_name+"_bi" if model.bi_s6.get("bi", 0) else m_name
+                  if hasattr(model, "bi_module"):
+                     m_name = (m_name + "_bi_mod") if model.bi_module else m_name
+                     m_name = m_name + "_placebo" if model.bi_module.get("placebo", 0) else m_name
+
                   print(m_name)
                   model = model.to(d)
                   #print(model)

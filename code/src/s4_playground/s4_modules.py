@@ -251,6 +251,7 @@ class FFTConvLean(nn.Module):
    def forward(self, x):
       return self.fftconv(x)
 
+
 class s4MambaModule(nn.Module):
    def __init__(
       self,
