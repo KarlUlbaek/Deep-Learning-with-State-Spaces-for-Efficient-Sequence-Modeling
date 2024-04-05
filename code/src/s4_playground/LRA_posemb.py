@@ -136,7 +136,7 @@ if __name__ == "__main__":
    n_layer = 6
    d_model = 116
    d_state = 16
-   dropout = 0.1
+   dropout = 0.15
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast)
 
@@ -181,6 +181,7 @@ if __name__ == "__main__":
    d_model = 116
    d_state = 16
    all_bi = ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", ""]
+   all_bi = [""]
    m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                          fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":x})
                          for x in all_bi]
@@ -192,17 +193,22 @@ if __name__ == "__main__":
                         layernorm=layernorm, prenorm=prenorm)
                         for x in all_bi]
 
+   m3 = [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
+            d_state=d_state, dropout=dropout, s4_kwargs={"mode": "dplr", "init": "legs", "bi": x},
+            layernorm=layernorm, prenorm=prenorm)
+    for x in all_bi]
 
 
-   Models = m1+m2#, s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+
+   Models = m2+m3#+m2#, s6Mamba]#, s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   datasets = [CIFAR10cont]#, CIFAR10cont] AAN_dataset
+   datasets = [CIFAR10token]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
 
    pos_embs = [{}]
 
-   n_epochs = 25
+   n_epochs = 100
    sched_epochs = int(n_epochs * 1.5)
    b = 64
    num_workers = 0
@@ -217,7 +223,9 @@ if __name__ == "__main__":
    test_throughput = True
    run_test_run = True
    wandb_logging = True
-   wandb_name = "_bi_test_v2" #""
+   wandb_name = "" #""
+   date_name_add = ""
+   model_name_add = "+LN"
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
@@ -251,12 +259,12 @@ if __name__ == "__main__":
                succes = False # we rerun the model till it actually learns
                while not succes:
                   d_name = dataset.__class__.__name__
-                  d_name = (d_name+"token") if vocab_size is not None else (d_name+"cons")
+                  d_name = (d_name+date_name_add+"token") if vocab_size is not None else (d_name+date_name_add+"cons")
                   print(f"\n Running on {d_name}")
                   model = Model(d_input=d_input, d_output=d_output, pos_emb=pos_emb, vocab_size=vocab_size,
                                 classification=dataset.classification)
                   m_name, n_params = print_model_stats(model)
-                  m_name += str(list(pos_emb.values())) + model.s4_kwargs.get("bi", "")
+                  m_name += model_name_add + str(list(pos_emb.values())) + model.s4_kwargs.get("bi", "")
                   model = model.to(d)
                   #print(model)
                   optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay)
