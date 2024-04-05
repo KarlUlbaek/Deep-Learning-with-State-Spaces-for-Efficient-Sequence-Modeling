@@ -30,20 +30,20 @@ class BiModule(nn.Module):
       super().__init__()
       self.placebo = placebo
       self.forward_model = partial_model(d_model=int(d_model*d_model_scale),
-                                         n_state=int(d_state * d_state_scale))
+                                         d_state=int(d_state * d_state_scale))
 
       self.backward_model = partial_model(d_model=int(d_model*d_model_scale),
-                                          n_state=int(d_state * d_state_scale))
+                                          d_state=int(d_state * d_state_scale))
 
-   def forward(self, x):
+   def forward(self, x, inference_params=None):
       if not self.placebo:
-          forward = self.forward_model(x)
-          backward = self.backward_model(x.flip(-2))
+          forward = self.forward_model(x, inference_params=None)
+          backward = self.backward_model(x.flip(-2), inference_params=None)
 
           return forward + backward.flip(-2)
       else:
-          forward = self.forward_model(x)
-          backward = self.backward_model(x)
+          forward = self.forward_model(x, inference_params=None)
+          backward = self.backward_model(x, inference_params=None)
 
           return forward + backward
 
@@ -82,10 +82,10 @@ def create_block(
         assert ""==s4_kwargs.get("bi", ""), "s4 SSP is already {}".format(s4_kwargs.get("bi", 0))
         mixer_cls = BiModule(partial_model=mixer_cls, d_model=d_model, d_state=d_state,
                              **bi_module)
-        norm_cls = norm_cls(d_model=int(d_model*bi_module["d_model_scale"]))
+        norm_cls = norm_cls(int(d_model*bi_module["d_model_scale"]))
     else:
         mixer_cls = mixer_cls(d_model=d_model, d_state=d_state)
-        norm_cls = norm_cls(d_model=d_model)
+        norm_cls = norm_cls(d_model)
 
 
     block = MambaBlock(
@@ -157,7 +157,9 @@ class MambaModel(nn.Module):
         super().__init__()
         self.residual_in_fp32 = residual_in_fp32
         self.classification = classification
-        self.d_model, self.d_state, self.n_layer, self.dropout = d_model, d_state, n_layer, dropout
+        self.d_model = int(d_model*bi_module.get("d_model_scale", 1))
+        self.d_state, self.n_layer, self.dropout = d_state, n_layer, dropout
+
         self.d_input, self.d_output, self.vocab_size= d_input, d_output, vocab_size
         self.s4 = "s6" if not bool(s4_kwargs) else s4_kwargs["mode"]
         self.s4_kwargs = s4_kwargs
@@ -165,9 +167,9 @@ class MambaModel(nn.Module):
         self.bi_module = bi_module
 
         if vocab_size:
-            self.encoder = nn.Embedding(vocab_size, d_model)
+            self.encoder = nn.Embedding(vocab_size, self.d_model)
         else:
-            self.encoder = nn.Linear(d_input, d_model)
+            self.encoder = nn.Linear(d_input, self.d_model)
 
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:
@@ -182,7 +184,7 @@ class MambaModel(nn.Module):
         self.layers = nn.ModuleList(
             [
                 create_block(
-                    d_model=d_model,
+                    d_model=d_model, # for now it is on purpose we dont pass on self.d_model
                     d_state=d_state,
                     dropout=dropout,
                     norm_epsilon=norm_epsilon,
@@ -200,7 +202,7 @@ class MambaModel(nn.Module):
         )
 
         self.norm_f = (nn.LayerNorm if not rms_norm else RMSNorm)(
-            d_model, eps=norm_epsilon, #**factory_kwargs
+            self.d_model, eps=norm_epsilon, #**factory_kwargs
         )
 
         self.apply(
@@ -212,9 +214,9 @@ class MambaModel(nn.Module):
         )
 
         if self.classification:
-            self.decoder = nn.Linear(d_model, d_output)
+            self.decoder = nn.Linear(self.d_model, d_output)
         else:
-            self.decoder = nn.Linear(d_model, vocab_size)
+            self.decoder = nn.Linear(self.d_model, vocab_size)
             # self.tie_weights()
 
         # def tie_weights(self):

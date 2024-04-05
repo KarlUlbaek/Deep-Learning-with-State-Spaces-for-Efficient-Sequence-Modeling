@@ -187,17 +187,17 @@ if __name__ == "__main__":
    #                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
    m1 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                          fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": False})
+                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False})
    m2 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                          fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": True})
+                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": True})
 
    m3 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                          fused_add_norm=fast, rms_norm=fast,
-                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": False})
+                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False})
    m4 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                          fused_add_norm=fast, rms_norm=fast,
-                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": True})
+                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": True})
 
    # d_state = 64
    # d_model = 170
@@ -285,7 +285,7 @@ if __name__ == "__main__":
                   #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
 
                   if test_throughput:
-                     data_throughput(train_loader, d_name)
+                     #data_throughput(train_loader, d_name)
                      model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
 
                   if test_mode or not wandb_logging:
