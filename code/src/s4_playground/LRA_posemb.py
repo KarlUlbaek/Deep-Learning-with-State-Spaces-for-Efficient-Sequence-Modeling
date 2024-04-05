@@ -10,7 +10,7 @@ from s4_playground.misc import setup_optimizer, print_model_stats, model_through
 
 
 def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_run,
-            improvement_demand=0.03, classification=True):
+            improvement_demand=0.01, classification=True):
 
    info_dict, train_acc = {}, 0
    for epoch_idx in range(n_epochs):
