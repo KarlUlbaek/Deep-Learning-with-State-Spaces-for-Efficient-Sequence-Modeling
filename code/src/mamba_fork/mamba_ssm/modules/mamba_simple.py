@@ -437,7 +437,7 @@ class S6MambaModulePosEmb(nn.Module):
             if self.layer_idx == 0:
                 print("using pos {} embeddings".format(pos_emb["loc"]))
 
-            assert "b_c_dt_x" in pos_emb != 0, "pos_emb kw_args dict must contrain a_b_dt entry!"
+            assert "b_c_dt_x" in pos_emb != 0, "pos_emb kw_args dict must contrain b_c_dt_x entry!"
             self.b_c_dt_x_posemb = pos_emb["b_c_dt_x"].lower()
             if self.layer_idx == 0:
                 for letter in ["b", "c", "dt", "x"]:

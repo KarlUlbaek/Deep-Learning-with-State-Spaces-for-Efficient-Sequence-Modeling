@@ -78,8 +78,8 @@ def create_block(
         nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon)#, **factory_kwargs
     #)
     if bi_module:
-        assert not bi_s6, "s6 SSP is already birectional"
-        assert ""==s4_kwargs.get("bi", ""), "s4 SSP is already {}".format(s4_kwargs.get("bi", 0))
+        if not bi_s6: print("s6 SSP is already birectional")
+        if not ""==s4_kwargs.get("bi", ""): print("s4 SSP is already {}".format(s4_kwargs.get("bi", 0)))
         mixer_cls = BiModule(partial_model=mixer_cls, d_model=d_model, d_state=d_state,
                              **bi_module)
         norm_cls = norm_cls(int(d_model*bi_module["d_model_scale"]))
@@ -165,6 +165,7 @@ class MambaModel(nn.Module):
         self.s4_kwargs = s4_kwargs
         self.bi_s6 = bi_s6
         self.bi_module = bi_module
+        self.pos_emb = pos_emb
 
         if vocab_size:
             self.encoder = nn.Embedding(vocab_size, self.d_model)
