@@ -192,14 +192,21 @@ if __name__ == "__main__":
                          fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"},
                          bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False},
                          pos_emb = {"loc":"all"})
-
    m3 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, bi_s6 = {"bi":True},
-                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False})
+                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"},
+                         pos_emb = {"loc":"all"})
 
    m4 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                          fused_add_norm=fast, rms_norm=fast, bi_s6 = {"bi":True},
+                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False})
+
+   m5 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                         fused_add_norm=fast, rms_norm=fast, bi_s6 = {"bi":True},
                          bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False},
+                         pos_emb = {"b_c_dt_x":"b_c_dt", "loc":"all"})
+
+   m6 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                         fused_add_norm=fast, rms_norm=fast, bi_s6 = {"bi":True},
                          pos_emb = {"b_c_dt_x":"b_c_dt", "loc":"all"})
    # m4 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
    #                       fused_add_norm=fast, rms_norm=fast,
@@ -214,7 +221,7 @@ if __name__ == "__main__":
    #s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   Models = [m1, m2, m3, m4]
+   Models = [m1, m2, m3, m4, m5, m6]
 
    datasets = [CIFAR10cont, IMDBtoken]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
