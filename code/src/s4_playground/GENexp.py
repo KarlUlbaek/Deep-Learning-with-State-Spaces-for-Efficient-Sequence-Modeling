@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
 
 
-   max_length = 1024*2
+   #max_length = 1024*2
    n_data_points = 50000
    n_epochs = 5
    b = 64
@@ -186,7 +186,7 @@ if __name__ == "__main__":
    run_test_run = True
    wandb_logging = True
    wandb_name = "" #""
-   data_name_add = "v1"
+   data_name_add = "_v1"
    model_name_add = ""
 
    test_modes = [True, False] if run_test_run else [False]
@@ -250,7 +250,7 @@ if __name__ == "__main__":
 
                if test_throughput:
                   data_throughput(train_loader, d_name)
-                  model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=max_length)
+                  model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=dataset.max_length)
 
                if test_mode or not wandb_logging:
                   wandb_run = None
