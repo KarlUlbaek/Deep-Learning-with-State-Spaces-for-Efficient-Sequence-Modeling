@@ -159,13 +159,13 @@ if __name__ == "__main__":
    b = 64
    num_workers = 2
    d = "cuda"
-   lr = 3e-3
+   lr = 1e-3
    lr_scale = 0.1 # 0.1
    weight_decay = 0.0 # 0.01
    criterion = CrossEntropyLoss()
 
-   gen_clas = Species(["hippo", "human", "pig", "sheep", "lemur"], "../data/species", max_length=1024*2,
-                tokenizer_name="char", total_size=10000, batch_size=b, classification=True, num_workers=num_workers)
+   gen_clas = Species(["hippo", "human", "pig", "sheep", "lemur"], "../data/species", max_length=1024,
+                tokenizer_name="char", total_size=50000, batch_size=b, classification=True, num_workers=num_workers)
    gen_clas.setup()
 
    datasets = [gen_clas]

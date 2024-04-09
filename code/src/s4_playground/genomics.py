@@ -141,7 +141,7 @@ class HG38(SequenceDataset):
                         return_augs=False,
                         replace_N_token=self.replace_N_token,
                         pad_interval=self.pad_interval)
-            for split, max_len in zip(['train', 'valid', 'test'], [self.max_length, self.max_length_val, self.max_length_test])
+            for split, max_len in zip(['train', 'valid', 'test'], [self.max_length, int(min(5000, self.max_length_val*0.1)), int(min(5000, self.max_length_val*0.1))])
         ]
 
         if self.use_fixed_len_val:

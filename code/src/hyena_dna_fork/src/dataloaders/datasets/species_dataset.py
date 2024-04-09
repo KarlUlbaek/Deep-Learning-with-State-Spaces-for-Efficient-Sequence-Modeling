@@ -283,10 +283,16 @@ class SpeciesDataset(torch.utils.data.Dataset):
 
         start: int = random.randint(left, right)
         end: int = start + self.max_length
-        seq = str(fasta[start:min(end, right)])
-        
-        # pad with Ns if necessary
+
+        # somehow indexing in fasta sometimes yeilds incorrect length when having multiple
+        # torch dataloader workers. thus we repeat untill we have the actual length
+        len_seq = int(1e9)
+        while len_seq > self.max_length:
+            seq = str(fasta[start:min(end, right)])
+            len_seq = len(seq)
+
         seq = seq.rjust(end - start, "N")
+
         assert len(seq) == self.max_length, f'Length of sequence ({len(seq)}) from interval ({start}, {end}) of chromosome {chromosome} (len={chromosome_length}) is not equal to `self.max_length` ({self.max_length})'
         
         if is_show_log:
@@ -340,17 +346,24 @@ if __name__ == "__main__":
     # d = SpeciesDataset(["hippo"], "/home/karl/Downloads/hippo/ncbi_dataset/data/", "train",
     #                    max_length=1000, total_size=100_000, tokenizer_name="char", tokenizer=CharacterTokenizer(max_len=1000))
 
-    from hyena_dna_fork.src.dataloaders.genomics import Species
-    dl = Species(["hippo", "human", "pig", "sheep", "lemur"], "/home/karl/Downloads/species", max_length=1024,
-                 tokenizer_name="char", total_size= 10000, drop_last=True)
-    dl.setup()
+    #from hyena_dna_fork.src.dataloaders.genomics import Species
+    # dl = Species(["hippo", "human", "pig", "sheep", "lemur"], "/home/karl/Downloads/species", max_length=1024*16,
+    #              tokenizer_name="char", total_size=100_000_000, drop_last=True, batch_size=1)
+    # dl.setup()
+    from s4_playground.genomics import Species
+    gen_clas = Species(["hippo", "human", "pig", "sheep", "lemur"], "/home/karl/Desktop/12/code/data/species", max_length=1024 * 2,
+                       tokenizer_name="char", total_size=10000, batch_size=64, classification=True,
+                       num_workers=0)
+    gen_clas.setup()
+
+    print(len(gen_clas.train_dataloader()))
+    print(len(gen_clas.val_dataloader()))
+    print(len(gen_clas.test_dataloader()))
 
     import tqdm
-    # for _ in tqdm.tqdm(dl.train_dataloader()):
-    #     pass
-    print(len(dl.train_dataloader()))
-    print(len(dl.val_dataloader()))
-    print(len(dl.test_dataloader()))
+    while True:
+        for _ in tqdm.tqdm(gen_clas.train_dataloader()): pass
+
 
     #d[0]
     print("")
