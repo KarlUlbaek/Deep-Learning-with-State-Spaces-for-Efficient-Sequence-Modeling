@@ -153,79 +153,97 @@ if __name__ == "__main__":
 
 
 
-
+   max_length = 1024*2
+   n_data_points = 50000
    n_epochs = 10
-   sched_epochs = int(n_epochs * 1.5)
    b = 64
-   num_workers = 2
+
+   sched_epochs = int(n_epochs * 1.5)
+   num_workers = 4
    d = "cuda"
    lr = 1e-3
    lr_scale = 0.1 # 0.1
    weight_decay = 0.0 # 0.01
    criterion = CrossEntropyLoss()
 
-   gen_clas = Species(["hippo", "human", "pig", "sheep", "lemur"], "../data/species", max_length=1024,
-                tokenizer_name="char", total_size=50000, batch_size=b, classification=True, num_workers=num_workers)
-   gen_clas.setup()
+   species = ["hippo", "human", "pig", "sheep", "lemur"]
+   species_dir = "../data/species"
 
-   datasets = [gen_clas]
+   gen_clas = Species(species=species, species_dir=species_dir, max_length=max_length,
+                      total_size=n_data_points, batch_size=b, classification=False,
+                      num_workers=num_workers
+                      ).setup("pretrain")
 
+   print(len(gen_clas.train_dataloader()))
+   print(len(gen_clas.val_dataloader()))
+   print(len(gen_clas.test_dataloader()))
+
+   datasets = [("pretrain", gen_clas),("finetune", gen_clas),("both", gen_clas)]
+
+   d_output = 5
+   vocab_size = 12
+   d_input = 1
 
    test_throughput = True
    run_test_run = True
    wandb_logging = False
-   wandb_name = "_bi_test_v2" #""
-   date_name_add = ""
+   wandb_name = "" #""
+   data_name_add = ""
    model_name_add = ""
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
    print("models:", [model.func.__name__ for model in Models])
    for test_mode in test_modes:
-      for dataset in datasets:
-         train_loader = dataset.train_dataloader(batch_size=b, num_workers=num_workers, shuffle=True)
-         eval_loader = dataset.val_dataloader(batch_size=b, num_workers=num_workers)
-         assert eval_loader is not None, "EVAL LOADER NONE. CAOS"
-         assert train_loader is not None, "TRAIN LOADER NONE. CAOS"
+      for Model in Models:
+         for training_plan, dataset in datasets:
+            assert training_plan in ["pretrain", "finetune", "both"]#, "train"]
 
-         xy_ = next(iter(train_loader))
-         x = xy_[0]
-         print(x.shape[0])
-         L = x.shape[1]
-         if x.dtype in [torch.int64, torch.int32, torch.int16]:
-            vocab_size = dataset.n_tokens
-            d_input = 1
-         else:
-            vocab_size = None
-            d_input = dataset.d_input
+            #init model and give it a proper name
+            model = Model(d_input=d_input, d_output=vocab_size, vocab_size=vocab_size, classification=False)
+            m_name, n_params = print_model_stats(model)
+            m_name += model_name_add + str(list(model.pos_emb.values())) + model.s4_kwargs.get("bi", "")
+            if hasattr(model, "bi_s6"): m_name = m_name + "_bi" if model.bi_s6.get("bi", 0) else m_name
+            if hasattr(model, "bi_module"):
+               m_name = (m_name + "_BIMODULE") if model.bi_module else m_name
+               m_name = m_name + "_placebo" if model.bi_module.get("placebo", 0) else m_name
+            print(m_name)
 
-         d_output = dataset.d_output
+            run = 0
+            while run < 2:
+               if training_plan == "finetune" or run == 1: #either we are not pretraining or we have already pretrained
+                  run+=1 #increment so we finish after this run
+                  print("finetuning!")
+                  model.classification = True
+                  model.d_output = d_output
+                  model.decoder = torch.nn.Linear(d_model, d_output) # change head of model to output one of the 5 classes
 
-         for Model in Models:
-            succes = False # we rerun the model till it actually learns
-            while not succes:
-               d_name = dataset.__class__.__name__
-               d_name = (d_name+date_name_add+"token") if vocab_size is not None else (d_name+date_name_add+"cons")
-               print(f"\n Running on {d_name}")
-               model = Model(d_input=d_input, d_output=d_output, vocab_size=vocab_size,
-                             classification=dataset.classification)
+                  dataset.classification = True
+                  dataset.setup("finetune")
 
-               m_name, n_params = print_model_stats(model)
-               m_name += model_name_add + str(list(model.pos_emb.values())) + model.s4_kwargs.get("bi", "")
-               if hasattr(model, "bi_s6"): m_name = m_name+"_bi" if model.bi_s6.get("bi", 0) else m_name
-               if hasattr(model, "bi_module"):
-                  m_name = (m_name + "_BIMODULE") if model.bi_module else m_name
-                  m_name = m_name + "_placebo" if model.bi_module.get("placebo", 0) else m_name
+               elif training_plan == "pretrain":
+                  run+=1 #increment so finish after this run
 
-               print(m_name)
+               else: # equals "both"
+                  pass # dont increment such that we will run twice
+
                model = model.to(d)
-               #print(model)
+               train_loader = dataset.train_dataloader(batch_size=b, num_workers=num_workers, shuffle=True)
+               eval_loader = dataset.val_dataloader(batch_size=b, num_workers=num_workers)
+               assert eval_loader is not None, "EVAL LOADER NONE. CAOS"
+               assert train_loader is not None, "TRAIN LOADER NONE. CAOS"
+
+
+               d_name = dataset.__class__.__name__
+               d_name = d_name + str(max_length) + data_name_add
+               d_name = (d_name + "pretraining") if not dataset.classification else d_name
+               print(f"\n Running on {d_name}")
+
                optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay)
-               #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
 
                if test_throughput:
                   data_throughput(train_loader, d_name)
-                  model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
+                  model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=max_length)
 
                if test_mode or not wandb_logging:
                   wandb_run = None
@@ -236,11 +254,12 @@ if __name__ == "__main__":
                                               "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
                                               "d_model":model.d_model, "n_params": n_params})
 
-               succes = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
+               _ = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
                                 criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
                                 wandb_run=wandb_run, classification=dataset.classification)
 
                model = model.to("cpu")
+               run += 1
 
 
 

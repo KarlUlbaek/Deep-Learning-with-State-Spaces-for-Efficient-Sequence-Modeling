@@ -6,12 +6,8 @@ import shutil
 import gzip
 import random
 from typing import Optional, Union, Dict, List
-import sys
-import os
-sys.path.append(os.getcwd())
 from hyena_dna_fork.src.dataloaders.datasets.hg38_char_tokenizer import CharacterTokenizer
 import collections
-
 
 """
 Dataset that randomly samples sequences of length (X) from a species' whole genome.
@@ -31,89 +27,101 @@ No augmentations yet.
 
 # Determine chromosomes to use for train/test split
 SPECIES_CHROMOSOME_SPLITS = {
-    'human' : {
-        'train' : [ '2', '4', '6', '8','14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', ],
-        'valid' : ['1', '3', '12', '13',],
-        'test' : [ '5', '7', '9', '10', '11',],
+    'human': {
+        'pretrain': ['14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', ],
+        'finetune': ['2', '4', '6', '8'],
+        'train': ['2', '4', '6', '8', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', ],
+        'valid': ['1', '3', '12', '13', ],
+        'test': ['5', '7', '9', '10', '11', ],
     },
-    'lemur' : {
-        'train' : [ '2', '4', '6', '8','14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', 'X', 'Y', ],
-        'valid' : ['1', '3', '12', '13',],
-        'test' : [ '5', '7', '9', '10', '11',],
+    'lemur': {
+        'pretrain': ['14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26','27', 'X', 'Y', ],
+        'finetune': ['2', '4', '6', '8'],
+        'train': ['2', '4', '6', '8', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26','27', 'X', 'Y', ],
+        'valid': ['1', '3', '12', '13', ],
+        'test': ['5', '7', '9', '10', '11', ],
     },
-    'goat' : {
-        'train' : [ '2', '4', '6', '8','14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', 'X', 'Y', ],
-        'valid' : ['1', '3', '12', '13',],
-        'test' : [ '5', '7', '9', '10', '11',],
+    'goat': {
+        'pretrain': ['14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26','27', '28', '29', 'X', 'Y', ],
+        'finetune': ['2', '4', '6', '8'],
+        'train': ['2', '4', '6', '8', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26','27', '28', '29', 'X', 'Y', ],
+        'valid': ['1', '3', '12', '13', ],
+        'test': ['5', '7', '9', '10', '11', ],
     },
-    'sheep' : {
-        'train' : [ '2', '4', '6', '8','14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', 'X', 'Y', ],
-        'valid' : ['1', '3', '12', '13',],
-        'test' : [ '5', '7', '9', '10', '11',],
+    'sheep': {
+        'pretrain': ['14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', 'X','Y', ],
+        'finetune': ['2', '4', '6', '8'],
+        'train': ['2', '4', '6', '8', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', 'X','Y', ],
+        'valid': ['1', '3', '12', '13', ],
+        'test': ['5', '7', '9', '10', '11', ],
     },
-    'pig' : {
-        'train' : [ '2', '4', '6', '8','14', '15', '16', '17', '18', 'X', 'Y', ],
-        'valid' : ['1', '3', '12', '13',],
-        'test' : [ '5', '7', '9', '10', '11',],
+    'pig': {
+        'pretrain': ['14', '15', '16', '17', '18', 'X', 'Y', ],
+        'finetune': ['2', '4', '6', '8'],
+        'train': ['2', '4', '6', '8', '14', '15', '16', '17', '18', 'X', 'Y'],
+        'valid': ['1', '3', '12', '13', ],
+        'test': ['5', '7', '9', '10', '11', ],
     },
-    'mouse' : {
-        'train' : [ '2', '4', '6', '8', '14', '15', '16', '17', '18', '19', 'X', ],
-        'valid' : ['1', '3', '12', '13',],
-        'test' : [ '5', '7', '9', '10', '11',],
+    'mouse': {
+        'train': ['2', '4', '6', '8', '14', '15', '16', '17', '18', '19', 'X', ],
+        'valid': ['1', '3', '12', '13', ],
+        'test': ['5', '7', '9', '10', '11', ],
     },
-    'gorilla' : {
-        'train' : [ '2A', '2B', '4', '6', '8', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', ],
-        'valid' : ['1', '3', '12', '13',],
-        'test' : [ '5', '7', '9', '10', '11',],
+    'gorilla': {
+        'train': ['2A', '2B', '4', '6', '8', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', ],
+        'valid': ['1', '3', '12', '13', ],
+        'test': ['5', '7', '9', '10', '11', ],
     },
-    'orangutan' : {
-        'train' : [ '2A', '2B', '4', '6', '8', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', ],
-        'valid' : ['1', '3', '12', '13',],
-        'test' : [ '5', '7', '9', '10', '11',],
+    'orangutan': {
+        'train': ['2A', '2B', '4', '6', '8', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', ],
+        'valid': ['1', '3', '12', '13', ],
+        'test': ['5', '7', '9', '10', '11', ],
     },
-    'chimpanzee' : {
-        'train' : [ '2A', '2B', '4', '6', '8', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', ],
-        'valid' : ['1', '3', '12', '13',],
-        'test' : [ '5', '7', '9', '10', '11',],
+    'chimpanzee': {
+        'train': ['2A', '2B', '4', '6', '8', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X', 'Y', ],
+        'valid': ['1', '3', '12', '13', ],
+        'test': ['5', '7', '9', '10', '11', ],
     },
-    'hippo' : {
-        'train' : [ '2', '4', '6', '8', '14', '15', '16', '17', 'X', ],
-        'valid' : ['1', '3', '12', '13',],
-        'test' : [ '5', '7', '9', '10', '11',],
+    'hippo': {
+        'pretrain': ['14', '15', '16', '17', 'X'],
+        'finetune': ['2', '4', '6', '8'],
+        'train': ['2', '4', '6', '8', '14', '15', '16', '17', 'X', ],
+        'valid': ['1', '3', '12', '13', ],
+        'test': ['5', '7', '9', '10', '11', ],
     }
 }
 
-class SpeciesDataset(torch.utils.data.Dataset):
 
+class SpeciesDataset(torch.utils.data.Dataset):
     '''
     Loop thru fasta files (separated by chromosome) and return a sequence of length `max_length` from a random chromosome.
     '''
 
     def __init__(
-        self,
-        species: list,
-        species_dir: str,
-        split: str,
-        max_length,
-        total_size,
-        pad_max_length=None,
-        tokenizer=CharacterTokenizer,
-        tokenizer_name=None,
-        add_eos=False,
-        rc_aug=False,
-        return_augs=False,
-        chromosome_weights: Optional[Union[Dict[str, List[float]], str]]='uniform',
-        species_weights: Optional[Union[List[float], str]]='uniform',
-        task='species_classification|next_token_pred',
-        remove_tail_ends=False,
-        cutoff_train=0.1,
-        cutoff_test=0.2,
+            self,
+            species: list,
+            species_dir: str,
+            split: str,
+            max_length,
+            total_size,
+            pad_max_length=None,
+            tokenizer=CharacterTokenizer,
+            tokenizer_name=None,
+            add_eos=False,
+            rc_aug=False,
+            return_augs=False,
+            chromosome_weights: Optional[Union[Dict[str, List[float]], str]] = 'uniform',
+            species_weights: Optional[Union[List[float], str]] = 'uniform',
+            task='species_classification|next_token_pred',
+            remove_tail_ends=False,
+            cutoff_train=0.1,
+            cutoff_test=0.2,
     ):
         """
         `chromosome_weights` => can be either...
             - String of form 'uniform|weighted_by_bp', in which case every species' chromosomes will be sampled accordingly
             - Dict of form {species: [chromosome weight1, chromosome weight 2, ...]
-            
+
         `species_weights` => can be either...
             - String of form 'uniform|weighted_by_bp'
             - List of form [ species weight1, species weight2, ... ]
@@ -134,15 +142,18 @@ class SpeciesDataset(torch.utils.data.Dataset):
         self.remove_tail_ends = remove_tail_ends
         self.cutoff_train = cutoff_train
         self.cutoff_test = cutoff_test
-        
+
         if task == 'species_classification' and self.d_output < 2:
-            print(f'Note that `d_output` should be >= 2 for task `{task}`, otherwise you are only predicting one class. Got {self.d_output}')
+            print(
+                f'Note that `d_output` should be >= 2 for task `{task}`, otherwise you are only predicting one class. Got {self.d_output}')
 
         # Store FASTAs for each species
-        self.fastas: Dict[str, Dict[str, Fasta]] = collections.defaultdict(dict) # [key] = species -> dict where [key] = chromosome, [value] = Fasta object
-        self.chromosomes: Dict[str, List[str]] = {} # [key] = species, [value] = list of chromosomes in this split
-        self.chromosome_weights: Dict[str, List[float]] = {} # [key] = species, [value] = list where [idx] = self.chromosomes[species][idx], [value] = weight
-        self.species_weights: List[float] = [] # [idx] = self.species[idx], [value] = weight
+        self.fastas: Dict[str, Dict[str, Fasta]] = collections.defaultdict(
+            dict)  # [key] = species -> dict where [key] = chromosome, [value] = Fasta object
+        self.chromosomes: Dict[str, List[str]] = {}  # [key] = species, [value] = list of chromosomes in this split
+        self.chromosome_weights: Dict[str, List[
+            float]] = {}  # [key] = species, [value] = list where [idx] = self.chromosomes[species][idx], [value] = weight
+        self.species_weights: List[float] = []  # [idx] = self.species[idx], [value] = weight
 
         # For every species in `self.species`, load all chromosomes belonging to `split`
         for spec in self.species:
@@ -158,9 +169,9 @@ class SpeciesDataset(torch.utils.data.Dataset):
                 # Unzip if necessary
                 gz_file_path = os.path.join(species_path, f'chr{chromosome}.fna.gz')
                 if os.path.exists(gz_file_path) and not (
-                    #os.path.exists(os.path.join(species_path, f'chr{chromosome}.fna')) or
-                    os.path.exists(os.path.join(species_path, f'{chromosome}.fna')) or
-                    os.path.exists(os.path.join(species_path, f'{chromosome}.fa'))
+                        # os.path.exists(os.path.join(species_path, f'chr{chromosome}.fna')) or
+                        os.path.exists(os.path.join(species_path, f'{chromosome}.fna')) or
+                        os.path.exists(os.path.join(species_path, f'{chromosome}.fa'))
                 ):
                     if is_show_log:
                         print(f"Unzipping {gz_file_path}...")
@@ -168,7 +179,7 @@ class SpeciesDataset(torch.utils.data.Dataset):
                         with open(os.path.join(species_path, f'chr{chromosome}.fna'), 'wb') as f_out:
                             shutil.copyfileobj(f_in, f_out)
                 # Read .fna or .fa file, whichever we can find
-                file_paths = [ os.path.join(species_path, x) for x in [ f'{chromosome}.fna', f'{chromosome}.fa' ] ]
+                file_paths = [os.path.join(species_path, x) for x in [f'{chromosome}.fna', f'{chromosome}.fa']]
                 is_file_found: bool = False
                 for file_path in file_paths:
                     if os.path.exists(file_path):
@@ -176,17 +187,20 @@ class SpeciesDataset(torch.utils.data.Dataset):
                             self.fastas[spec][chromosome] = Fasta(file_path, sequence_always_upper=True)
                         is_file_found = True
                 if not is_file_found:
-                    raise FileNotFoundError(f'Could not find any of these files: `{file_paths}`. Please point to a valid directory containing all .fna files for species `{spec}`.\nExpected chromosomes: {self.chromosomes[spec]}.')
+                    raise FileNotFoundError(
+                        f'Could not find any of these files: `{file_paths}`. Please point to a valid directory containing all .fna files for species `{spec}`.\nExpected chromosomes: {self.chromosomes[spec]}.')
 
             if is_show_log:
                 print(f"Species: {spec}")
                 print(f"Split: {split}")
                 print(f"Chromosomes: {self.chromosomes[spec]}")
-                print(f"Loaded {len(self.fastas[spec])} FASTA files from {species_path}: {list(self.fastas[spec].keys())}")
+                print(
+                    f"Loaded {len(self.fastas[spec])} FASTA files from {species_path}: {list(self.fastas[spec].keys())}")
 
         # Set chromosome weights for sampling
         if isinstance(chromosome_weights, dict):
-            assert len(chromosome_weights) == len(self.species), f"`chromosome_weights` must have a weight for each species. Expected {len(self.species)} weights, instead got {len(chromosome_weights)}."
+            assert len(chromosome_weights) == len(
+                self.species), f"`chromosome_weights` must have a weight for each species. Expected {len(self.species)} weights, instead got {len(chromosome_weights)}."
             self.chromosome_weights = chromosome_weights
         elif chromosome_weights == 'uniform':
             self.chromosome_weights = {
@@ -199,8 +213,9 @@ class SpeciesDataset(torch.utils.data.Dataset):
                 for spec in self.species
             }
         else:
-            raise ValueError(f"Invalid chromosome_weights: {chromosome_weights}. Must be 'uniform', 'weighted_by_bp', or a dict of species -> chromosome weights.")
-        
+            raise ValueError(
+                f"Invalid chromosome_weights: {chromosome_weights}. Must be 'uniform', 'weighted_by_bp', or a dict of species -> chromosome weights.")
+
         for spec, strategy_or_weights in self.chromosome_weights.items():
             if isinstance(strategy_or_weights, str):
                 if strategy_or_weights == 'uniform':
@@ -212,19 +227,24 @@ class SpeciesDataset(torch.utils.data.Dataset):
                         len(self.fastas[spec][chromosome])
                         for chromosome in self.chromosomes[spec]
                     ]
-                    self.chromosome_weights[spec] = [w / sum(self.chromosome_weights[spec]) for w in self.chromosome_weights[spec]]
+                    self.chromosome_weights[spec] = [w / sum(self.chromosome_weights[spec]) for w in
+                                                     self.chromosome_weights[spec]]
                 else:
-                    raise ValueError(f"Invalid chromosome_weights strategy: {strategy_or_weights}. Must be 'uniform' or 'weighted_by_bp'.")
+                    raise ValueError(
+                        f"Invalid chromosome_weights strategy: {strategy_or_weights}. Must be 'uniform' or 'weighted_by_bp'.")
             elif isinstance(strategy_or_weights, list):
                 # Check that all chromosomes are accounted for
-                assert set(strategy_or_weights.keys()) == set(self.chromosomes[spec]), f"`chromosome_weights` must have a weight for each chromosome. Expected {self.chromosomes[spec]}, instead got {strategy_or_weights.keys()}."
+                assert set(strategy_or_weights.keys()) == set(self.chromosomes[
+                                                                  spec]), f"`chromosome_weights` must have a weight for each chromosome. Expected {self.chromosomes[spec]}, instead got {strategy_or_weights.keys()}."
                 self.chromosome_weights[spec] = strategy_or_weights
             else:
-                raise ValueError(f"Invalid chromosome_weights: {chromosome_weights}. Must be 'uniform', 'weighted_by_bp', or a dict of species -> chromosome weights.")
-            
+                raise ValueError(
+                    f"Invalid chromosome_weights: {chromosome_weights}. Must be 'uniform', 'weighted_by_bp', or a dict of species -> chromosome weights.")
+
         # Set species weights for sampling
         if isinstance(species_weights, list):
-            assert len(species_weights) == len(self.species), f"`species_weights` must have a weight for each species. Expected {len(self.species)} weights, instead got {len(species_weights)}."
+            assert len(species_weights) == len(
+                self.species), f"`species_weights` must have a weight for each species. Expected {len(self.species)} weights, instead got {len(species_weights)}."
             self.species_weights = species_weights
         elif species_weights == 'uniform':
             # Uniform weights
@@ -232,16 +252,17 @@ class SpeciesDataset(torch.utils.data.Dataset):
         elif species_weights == 'weighted_by_bp':
             # Weight by number of base pairs in each chromosome
             self.species_weights = [
-                sum([ 
-                    len(fasta) 
-                    for fasta in self.fastas[spec].values() 
+                sum([
+                    len(fasta)
+                    for fasta in self.fastas[spec].values()
                 ])
                 for spec in self.species
             ]
             self.species_weights = [w / sum(self.species_weights) for w in self.species_weights]
         else:
-            raise ValueError(f"Invalid species_weights: {species_weights}. Must be 'uniform', 'weighted_by_bp', or a dict of species -> chromosome weights.")
-    
+            raise ValueError(
+                f"Invalid species_weights: {species_weights}. Must be 'uniform', 'weighted_by_bp', or a dict of species -> chromosome weights.")
+
         if is_show_log:
             print(f"Species weights: {list(zip(self.species, self.species_weights))}")
             print(f"Chromosome weights: {self.chromosome_weights}")
@@ -265,7 +286,7 @@ class SpeciesDataset(torch.utils.data.Dataset):
 
         # sample a random sequence of length `self.max_length` from this chromosome
         # print("****", spec, chromosome, self.fastas[spec].keys(), idx)
-        fasta = self.fastas[spec][chromosome][0] # idx into 0 b/c only one fasta per chromosome
+        fasta = self.fastas[spec][chromosome][0]  # idx into 0 b/c only one fasta per chromosome
         chromosome_length: int = len(fasta)
         # rand = random.Random() # maps idx -> random seed, without affecting global random state
         # rand.seed(idx + 2)
@@ -275,10 +296,10 @@ class SpeciesDataset(torch.utils.data.Dataset):
                 cutoff = self.cutoff_train
             else:
                 cutoff = self.cutoff_test
-        
+
             # cutoff the first 10% of the chromosome length to remove repeats
             left = int(chromosome_length * cutoff)
-            
+
             # cutoff the last 10% of the chromosome length to remove repeats
             right = int(chromosome_length * (1 - cutoff))
         else:
@@ -287,17 +308,34 @@ class SpeciesDataset(torch.utils.data.Dataset):
 
         start: int = random.randint(left, right)
         end: int = start + self.max_length
-        seq = str(fasta[start:min(end, right)])
-        
-        # pad with Ns if necessary
+
+        # somehow indexing in fasta sometimes yeilds incorrect length when having multiple
+        # torch dataloader workers. thus we repeat untill we have the actual length
+        len_seq = int(1e9)
+        attempts = 0
+        while len_seq > self.max_length:
+            seq = str(fasta[start:min(end, right)])
+            len_seq = len(seq)
+
+            attempts += 1
+            if attempts > 100:
+                print("error")
+                print("actual, max:", len_seq, self.max_length)
+                seq = seq[:self.max_length]
+                len_seq = len(seq)
+
+
+
         seq = seq.rjust(end - start, "N")
-        assert len(seq) == self.max_length, f'Length of sequence ({len(seq)}) from interval ({start}, {end}) of chromosome {chromosome} (len={chromosome_length}) is not equal to `self.max_length` ({self.max_length})'
-        
+
+        assert len(
+            seq) == self.max_length, f'Length of sequence ({len(seq)}) from interval ({start}, {end}) of chromosome {chromosome} (len={chromosome_length}) is not equal to `self.max_length` ({self.max_length})'
+
         if is_show_log:
             print(f"Sampled species: {spec}")
             print(f"Sampled chromosome: {chromosome}")
             print(f"Sampled sequence ({start}, {end}) of len={len(seq)}: {seq[:10]}...{seq[-10:]}")
-        
+
         assert self.tokenizer is not None, f"Tokenizer cannot be `None`."
         if self.tokenizer_name == 'char':
             seq = self.tokenizer(seq, add_special_tokens=False)  # add cls and eos token (+2)
@@ -307,11 +345,11 @@ class SpeciesDataset(torch.utils.data.Dataset):
                 # append list seems to be faster than append tensor
                 seq.append(self.tokenizer.sep_token_id)
         elif self.tokenizer_name == 'bpe':
-            seq = self.tokenizer(seq, 
-                padding="max_length",
-                max_length=self.pad_max_length,
-                truncation=True,
-            )  # add cls and eos token (+2)
+            seq = self.tokenizer(seq,
+                                 padding="max_length",
+                                 max_length=self.pad_max_length,
+                                 truncation=True,
+                                 )  # add cls and eos token (+2)
             # get input_ids
             if self.add_eos:
                 seq = seq["input_ids"][1:]  # remove the bos, keep the eos token
@@ -334,29 +372,38 @@ class SpeciesDataset(torch.utils.data.Dataset):
         if is_show_log:
             print(f"Sampled tokens of len={len(seq)}: {seq[:10]}...{seq[-10:]}")
             print(f"Sampled target: {target}")
-        
+
         return data, target
 
 
 if __name__ == "__main__":
-    #fasta = Fasta("/home/karl/Downloads/hippo/ncbi_dataset/data/GCF_030028045.1/GCF_030028045.1_mHipAmp2.hap2_genomic.fna", sequence_always_upper=True)
-    #fasta = Fasta("/home/karl/Downloads/hippo/ncbi_dataset/data/", sequence_always_upper=True)
+    # fasta = Fasta("/home/karl/Downloads/hippo/ncbi_dataset/data/GCF_030028045.1/GCF_030028045.1_mHipAmp2.hap2_genomic.fna", sequence_always_upper=True)
+    # fasta = Fasta("/home/karl/Downloads/hippo/ncbi_dataset/data/", sequence_always_upper=True)
     # d = SpeciesDataset(["hippo"], "/home/karl/Downloads/hippo/ncbi_dataset/data/", "train",
     #                    max_length=1000, total_size=100_000, tokenizer_name="char", tokenizer=CharacterTokenizer(max_len=1000))
 
+    # from hyena_dna_fork.src.dataloaders.genomics import Species
+    # dl = Species(["hippo", "human", "pig", "sheep", "lemur"], "/home/karl/Downloads/species", max_length=1024*16,
+    #              tokenizer_name="char", total_size=100_000_000, drop_last=True, batch_size=1)
+    # dl.setup()
     from s4_playground.genomics import Species
-    dl = Species(["hippo", "human", "pig", "sheep", "lemur"], "../data/species", max_length=1024,
-                 tokenizer_name="char", total_size= 10000, drop_last=True)
-    dl.setup()
+
+    gen_clas = Species(["hippo", "human", "pig", "sheep", "lemur"], "/home/karl/Desktop/12/code/data/species",
+                       max_length=1024 * 2,
+                       tokenizer_name="char", total_size=10000, batch_size=64, classification=True,
+                       num_workers=0)
+    gen_clas.setup()
+
+    print(len(gen_clas.train_dataloader()))
+    print(len(gen_clas.val_dataloader()))
+    print(len(gen_clas.test_dataloader()))
 
     import tqdm
-    # for _ in tqdm.tqdm(dl.train_dataloader()):
-    #     pass
-    print(len(dl.train_dataloader()))
-    print(len(dl.val_dataloader()))
-    print(len(dl.test_dataloader()))
 
-    #d[0]
+    while True:
+        for _ in tqdm.tqdm(gen_clas.train_dataloader()): pass
+
+    # d[0]
     print("")
 
 
