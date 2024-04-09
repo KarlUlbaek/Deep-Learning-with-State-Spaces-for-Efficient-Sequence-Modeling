@@ -287,7 +287,12 @@ class SpeciesDataset(torch.utils.data.Dataset):
         # somehow indexing in fasta sometimes yeilds incorrect length when having multiple
         # torch dataloader workers. thus we repeat untill we have the actual length
         len_seq = int(1e9)
+        attempts = 0
         while len_seq > self.max_length:
+            attempts += 1
+            if attempts > 10_000:
+                print("error")
+
             seq = str(fasta[start:min(end, right)])
             len_seq = len(seq)
 
