@@ -292,6 +292,7 @@ class SpeciesDataset(torch.utils.data.Dataset):
             attempts += 1
             if attempts > 10_000:
                 print("error")
+                raise RuntimeError
 
             seq = str(fasta[start:min(end, right)])
             len_seq = len(seq)
