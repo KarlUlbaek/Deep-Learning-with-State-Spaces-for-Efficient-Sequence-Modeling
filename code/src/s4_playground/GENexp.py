@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
 
 
-   n_epochs = 25
+   n_epochs = 10
    sched_epochs = int(n_epochs * 1.5)
    b = 64
    num_workers = 2
