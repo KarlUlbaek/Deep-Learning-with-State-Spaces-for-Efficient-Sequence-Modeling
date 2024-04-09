@@ -136,114 +136,44 @@ if __name__ == "__main__":
    n_layer = 6
    d_model = 116
    d_state = 16
-   dropout = 0.1
+   dropout = 0.0
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast, bi_s6=False)
+                     fused_add_norm=fast, rms_norm=fast, bi_s6={})
 
    s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
 
-   d_state = 64
-   d_model = 170
-   layernorm = True # = True means layernorm and not RMS
-   prenorm = False # =
-   s4dClassic = partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
-                        d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"},
-                        layernorm=layernorm, prenorm=prenorm)
-
-   from lra import IMDB, PathFinder
-   from s4_fork.src.dataloaders.basic import CIFAR10
-   from s4_playground.misc import AAN_tensor_dataset
-
-   AAN_dataset = AAN_tensor_dataset("../data")
-   next(iter(AAN_dataset.train_dataloader()))
-
-   data = CIFAR10("cifar")
-   data.setup("../data/cifar10")
-   CIFAR10cont = deepcopy(data)
-   data.tokenize = True
-   data.grayscale = True
-   data.setup("../data/cifar10")
-   CIFAR10token = deepcopy(data)
-   #
-   data = IMDB("imdb")
-   data.l_max = 1024
-   data.setup("../data/imdb")
-   IMDBtoken = deepcopy(data)
-   # #
-   data = PathFinder("pathfinder")
-   data.setup("../data")
-   #data.setup("../data")
-   Pathfindercont = deepcopy(data)
-   data.tokenize = True
-   data.setup("../data")
-   #data.setup("../data")
-   Pathfindertoken = deepcopy(data)
 
 
-   d_model = 116
-   d_state = 16
-   #bi = ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", "", "placebo"]
-   #bi = ["sequential_bi", "half_dim_bi", ""]
-   #bi_module = {"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": False}
-   # m1 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-   #                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
-   m1 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"},
-                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False})
-   m2 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"},
-                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False},
-                         pos_emb = {"loc":"all"})
-   m3 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"},
-                         pos_emb = {"loc":"all"})
 
-   m4 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, bi_s6 = {"bi":True},
-                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False})
 
-   m5 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, bi_s6 = {"bi":True},
-                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False},
-                         pos_emb = {"b_c_dt_x":"b_c_dt", "loc":"all"})
+   Models = [s6Mamba, s4dMamba]
 
-   m6 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, bi_s6 = {"bi":True},
-                         pos_emb = {"b_c_dt_x":"b_c_dt", "loc":"all"})
-   # m4 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-   #                       fused_add_norm=fast, rms_norm=fast,
-   #                       bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": True})
+   from genomics import Species
 
-   # d_state = 64
-   # d_model = 170
-   # m2 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
-   #                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": x},
-   #                      layernorm=layernorm, prenorm=prenorm)
-   #                      for x in bi]
-   #s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
-   #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   Models = [m1, m2, m3, m4, m5, m6]
 
-   datasets = [CIFAR10cont, IMDBtoken]#, CIFAR10cont] AAN_dataset
-   #datasets = [Pathfindercont]
 
    n_epochs = 25
    sched_epochs = int(n_epochs * 1.5)
    b = 64
-   num_workers = 0
+   num_workers = 2
    d = "cuda"
    lr = 3e-3
    lr_scale = 0.1 # 0.1
-   weight_decay = 0.01 # 0.01
-   #pos_emb = {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"}
-   #loc must be ["all", "first", "everyother"]
+   weight_decay = 0.0 # 0.01
    criterion = CrossEntropyLoss()
+
+   gen_clas = Species(["hippo", "human", "pig", "sheep", "lemur"], "../data/species", max_length=1024*2,
+                tokenizer_name="char", total_size=10000, batch_size=b, classification=True, num_workers=num_workers)
+   gen_clas.setup()
+
+   datasets = [gen_clas]
+
 
    test_throughput = True
    run_test_run = True
-   wandb_logging = True
+   wandb_logging = False
    wandb_name = "_bi_test_v2" #""
    date_name_add = ""
    model_name_add = ""
@@ -254,17 +184,13 @@ if __name__ == "__main__":
    for test_mode in test_modes:
       for dataset in datasets:
          train_loader = dataset.train_dataloader(batch_size=b, num_workers=num_workers, shuffle=True)
-         # toptier cursed. IMDB doesnt have a val loader and CIFAR and PAtherfinder returns a dictionary object with the key *None*
-         try:
-            eval_loader = dataset.val_dataloader(batch_size=b, num_workers=num_workers)[None]
-         except TypeError as e:
-            eval_loader = dataset.test_dataloader(batch_size=b, num_workers=num_workers)
-
+         eval_loader = dataset.val_dataloader(batch_size=b, num_workers=num_workers)
          assert eval_loader is not None, "EVAL LOADER NONE. CAOS"
          assert train_loader is not None, "TRAIN LOADER NONE. CAOS"
 
          xy_ = next(iter(train_loader))
          x = xy_[0]
+         print(x.shape[0])
          L = x.shape[1]
          if x.dtype in [torch.int64, torch.int32, torch.int16]:
             vocab_size = dataset.n_tokens
@@ -298,7 +224,7 @@ if __name__ == "__main__":
                #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
 
                if test_throughput:
-                  #data_throughput(train_loader, d_name)
+                  data_throughput(train_loader, d_name)
                   model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
 
                if test_mode or not wandb_logging:
