@@ -138,7 +138,7 @@ if __name__ == "__main__":
    d_state = 16
    dropout = 0.0
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast, bi_s6={}, bi_module={"d_model_scale": 0.68, "d_state_scale": 1.0})
+                     fused_add_norm=fast, rms_norm=fast, bi_s6={})
 
    s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
@@ -171,10 +171,10 @@ if __name__ == "__main__":
    datas = [Species(species=species, species_dir=species_dir, max_length=max_length,
                       total_size=n_data_points, batch_size=b, classification=False,
                       num_workers=num_workers
-                      ) for max_length in [1024*2, 1024*4, 1024*8, 1024*16]]
+                      ) for max_length in [1024*16]*2]
 
    # "both, finetune, pretrain"
-   train_runs = ["finetune"]*4
+   train_runs = ["both"] + ["finetune"]
 
    datasets = list(zip(train_runs, datas))
 
@@ -217,7 +217,7 @@ if __name__ == "__main__":
                   print("finetuning!")
                   model.classification = True
                   model.d_output = d_output
-                  model.decoder = torch.nn.Linear(model.d_model, d_output) # change head of model to output one of the 5 classes
+                  model.decoder = torch.nn.Linear(d_model, d_output) # change head of model to output one of the 5 classes
 
                   dataset.setup("finetune")
                   dataset.classification = True

@@ -113,7 +113,7 @@ def model_throughput(model, vocab_size, d_input, b=64, L=1000, reps=10):
    print(f"far/back speed b/s: {1/t1:.1f}, {1/t2:.1f}")
    model = model.to("cpu")
 
-def data_throughput(data_loader, name, warmup=10, actualrun=50):
+def data_throughput(data_loader, name, warmup=5, actualrun=10):
    for i, _ in enumerate(data_loader):
       if i == warmup:
          break

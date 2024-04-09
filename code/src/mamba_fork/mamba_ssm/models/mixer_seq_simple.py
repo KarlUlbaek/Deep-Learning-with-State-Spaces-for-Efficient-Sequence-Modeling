@@ -78,7 +78,7 @@ def create_block(
         nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon)#, **factory_kwargs
     #)
     if bi_module:
-        if not bi_s6: print("s6 SSP is already birectional")
+        if bi_s6: print("s6 SSP is already birectional")
         if not ""==s4_kwargs.get("bi", ""): print("s4 SSP is already {}".format(s4_kwargs.get("bi", 0)))
         mixer_cls = BiModule(partial_model=mixer_cls, d_model=d_model, d_state=d_state,
                              **bi_module)
