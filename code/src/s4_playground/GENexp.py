@@ -155,13 +155,12 @@ if __name__ == "__main__":
 
    max_length = 1024*2
    n_data_points = 50000
-   n_epochs = 10
+   n_epochs = 5
    b = 64
 
    sched_epochs = int(n_epochs * 1.3)
    num_workers = 4
    d = "cuda"
-   lr = 1e-3 * (2048 / max_length)
    lr_scale = 0.1 # 0.1
    weight_decay = 0.0 # 0.01
    criterion = CrossEntropyLoss()
@@ -169,16 +168,15 @@ if __name__ == "__main__":
    species = ["hippo", "human", "pig", "sheep", "lemur"]
    species_dir = "../data/species"
 
-   gen_clas = Species(species=species, species_dir=species_dir, max_length=max_length,
+   datas = [Species(species=species, species_dir=species_dir, max_length=max_length,
                       total_size=n_data_points, batch_size=b, classification=False,
                       num_workers=num_workers
-                      ).setup("pretrain")
+                      ) for max_length in [1024*2, 1024*4, 1024*8]*2]
 
-   print(len(gen_clas.train_dataloader()))
-   print(len(gen_clas.val_dataloader()))
-   print(len(gen_clas.test_dataloader()))
+   # "both, finetune, pretrain"
+   train_runs = ["both"]*3 + ["finetune"]*3
 
-   datasets = [("both", gen_clas), ("finetune", gen_clas),("pretrain", gen_clas), ("both", gen_clas)]
+   datasets = list(zip(train_runs, datas))
 
    d_output = 5
    vocab_size = 12
@@ -186,13 +184,13 @@ if __name__ == "__main__":
 
    test_throughput = True
    run_test_run = True
-   wandb_logging = False
+   wandb_logging = True
    wandb_name = "" #""
-   data_name_add = ""
+   data_name_add = "v1"
    model_name_add = ""
 
    test_modes = [True, False] if run_test_run else [False]
-   print("datasets:", [dataset[1].__class__.__name__ for dataset in datasets])
+   print("datasets:", [dataset[1].__class__.__name__+"_"+str(dataset[1].max_length)+"_"+dataset[0] for dataset in datasets])
    print("models:", [model.func.__name__ for model in Models])
    for test_mode in test_modes:
       for Model in Models:
@@ -203,12 +201,13 @@ if __name__ == "__main__":
             #init model and give it a proper name
             model = Model(d_input=d_input, d_output=vocab_size, vocab_size=vocab_size, classification=False)
             m_name, n_params = print_model_stats(model)
+            m_name += "_"+str(dataset.max_length)
             m_name += model_name_add + str(list(model.pos_emb.values())) + model.s4_kwargs.get("bi", "")
             if hasattr(model, "bi_s6"): m_name = m_name + "_bi" if model.bi_s6.get("bi", 0) else m_name
             if hasattr(model, "bi_module"):
                m_name = (m_name + "_BIMODULE") if model.bi_module else m_name
                m_name = m_name + "_placebo" if model.bi_module.get("placebo", 0) else m_name
-            print(m_name)
+            #print(m_name)
 
             run = 0
             while run < 2:
@@ -239,11 +238,15 @@ if __name__ == "__main__":
 
 
                d_name = dataset.__class__.__name__
-               d_name = d_name + str(max_length) + data_name_add
-               d_name = (d_name + "pretraining") if not dataset.classification else d_name
-               print(f"\n Running on {d_name}")
+               d_name = d_name + data_name_add
+               d_name = (d_name + "_pretrain") if not dataset.classification else d_name
+               #print(f"\n Running on {d_name}")
 
+               lr = 1e-3 * (2048 / dataset.max_length)
                optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay)
+
+               print("model:", m_name)
+               print("data:", d_name)
 
                if test_throughput:
                   data_throughput(train_loader, d_name)
