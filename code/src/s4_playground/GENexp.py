@@ -161,7 +161,7 @@ if __name__ == "__main__":
    sched_epochs = int(n_epochs * 1.3)
    num_workers = 4
    d = "cuda"
-   lr = 1e-3 * (1024 / max_length)
+   lr = 1e-3 * (2048 / max_length)
    lr_scale = 0.1 # 0.1
    weight_decay = 0.0 # 0.01
    criterion = CrossEntropyLoss()
