@@ -26,7 +26,8 @@ except ImportError:
 
 class BiModule(nn.Module):
    def __init__(self, partial_model, d_model, d_state,
-                d_model_scale, d_state_scale, placebo = False):
+                d_model_scale, d_state_scale, placebo = False,
+                tie_linear_proj = False):
       super().__init__()
       self.placebo = placebo
       self.forward_model = partial_model(d_model=int(d_model*d_model_scale),
@@ -34,6 +35,10 @@ class BiModule(nn.Module):
 
       self.backward_model = partial_model(d_model=int(d_model*d_model_scale),
                                           d_state=int(d_state * d_state_scale))
+
+      if tie_linear_proj:
+        self.forward_model.in_proj.weight = self.backward_model.in_proj.weight
+        self.forward_model.out_proj.weight = self.backward_model.out_proj.weight
 
    def forward(self, x, inference_params=None):
       if not self.placebo:

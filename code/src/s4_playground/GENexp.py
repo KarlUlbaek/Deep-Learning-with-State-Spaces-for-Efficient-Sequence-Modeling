@@ -140,6 +140,10 @@ if __name__ == "__main__":
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast, bi_s6={}, bi_module={"d_model_scale": 0.68, "d_state_scale": 1.0})
 
+   s6Mamba_tie = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                         fused_add_norm=fast, rms_norm=fast, bi_s6={},
+                         bi_module={"d_model_scale": 0.9, "d_state_scale": 1.0, "tie_linear_proj":True})
+
    s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
 
@@ -147,7 +151,7 @@ if __name__ == "__main__":
 
 
 
-   Models = [s6Mamba]#, s4dMamba]
+   Models = [s6Mamba_tie, s6Mamba]#, s4dMamba]
 
    from genomics import Species
 
@@ -203,6 +207,7 @@ if __name__ == "__main__":
             m_name, n_params = print_model_stats(model)
             m_name += "_"+str(dataset.max_length)
             m_name += model_name_add + str(list(model.pos_emb.values())) + model.s4_kwargs.get("bi", "")
+            m_name = (m_name+"_tied") if model.bi_module.get("tie_linear_proj", 0) else m_name
             if hasattr(model, "bi_s6"): m_name = m_name + "_bi" if model.bi_s6.get("bi", 0) else m_name
             if hasattr(model, "bi_module"):
                m_name = (m_name + "_BIMODULE") if model.bi_module else m_name
