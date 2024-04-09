@@ -272,8 +272,9 @@ class Species(HG38):
             assert ddp and fault_tolerant
 
     def setup(self, split="train", stage=None):
+        self.classification = False
         if self.tokenizer_name == 'char':
-            print("**Using Char-level tokenizer**")
+            #print("**Using Char-level tokenizer**")
             self.tokenizer = CharacterTokenizer(
                 characters=['A', 'C', 'G', 'T', 'N'],
                 model_max_length=self.max_length + 2,  # add 2 since default adds eos/eos tokens, crop later

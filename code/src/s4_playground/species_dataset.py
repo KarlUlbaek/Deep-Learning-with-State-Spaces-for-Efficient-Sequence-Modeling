@@ -319,8 +319,8 @@ class SpeciesDataset(torch.utils.data.Dataset):
 
             attempts += 1
             if attempts > 100:
-                print("error")
-                print("actual, max:", len_seq, self.max_length)
+                #print("error")
+                #print("actual, max:", len_seq, self.max_length)
                 seq = seq[:self.max_length]
                 len_seq = len(seq)
 

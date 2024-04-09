@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
 
 
-   Models = [s6Mamba, s4dMamba]
+   Models = [s6Mamba]#, s4dMamba]
 
    from genomics import Species
 
@@ -158,10 +158,10 @@ if __name__ == "__main__":
    n_epochs = 10
    b = 64
 
-   sched_epochs = int(n_epochs * 1.5)
+   sched_epochs = int(n_epochs * 1.3)
    num_workers = 4
    d = "cuda"
-   lr = 1e-3
+   lr = 1e-3 * (1024 / max_length)
    lr_scale = 0.1 # 0.1
    weight_decay = 0.0 # 0.01
    criterion = CrossEntropyLoss()
@@ -178,7 +178,7 @@ if __name__ == "__main__":
    print(len(gen_clas.val_dataloader()))
    print(len(gen_clas.test_dataloader()))
 
-   datasets = [("pretrain", gen_clas),("finetune", gen_clas),("both", gen_clas)]
+   datasets = [("both", gen_clas), ("finetune", gen_clas),("pretrain", gen_clas), ("both", gen_clas)]
 
    d_output = 5
    vocab_size = 12
@@ -192,11 +192,12 @@ if __name__ == "__main__":
    model_name_add = ""
 
    test_modes = [True, False] if run_test_run else [False]
-   print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
+   print("datasets:", [dataset[1].__class__.__name__ for dataset in datasets])
    print("models:", [model.func.__name__ for model in Models])
    for test_mode in test_modes:
       for Model in Models:
          for training_plan, dataset in datasets:
+            dataset = dataset.setup("pretrain") #always init to pretraining
             assert training_plan in ["pretrain", "finetune", "both"]#, "train"]
 
             #init model and give it a proper name
@@ -218,14 +219,15 @@ if __name__ == "__main__":
                   model.d_output = d_output
                   model.decoder = torch.nn.Linear(d_model, d_output) # change head of model to output one of the 5 classes
 
-                  dataset.classification = True
                   dataset.setup("finetune")
+                  dataset.classification = True
 
                elif training_plan == "pretrain":
                   print("pretraining only!")
                   run+=1 #increment so finish after this run
 
                else: # equals "both"
+                  if run == 1: m_name += "_pretrained"
                   print("pretraining now and finetuning after!")
                   pass # dont increment such that we will run twice
 
