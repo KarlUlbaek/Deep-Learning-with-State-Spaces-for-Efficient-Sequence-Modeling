@@ -222,9 +222,11 @@ if __name__ == "__main__":
                   dataset.setup("finetune")
 
                elif training_plan == "pretrain":
+                  print("pretraining only!")
                   run+=1 #increment so finish after this run
 
                else: # equals "both"
+                  print("pretraining now and finetuning after!")
                   pass # dont increment such that we will run twice
 
                model = model.to(d)
