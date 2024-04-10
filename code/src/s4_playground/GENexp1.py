@@ -211,10 +211,10 @@ if __name__ == "__main__":
    datas = [Species(species=species, species_dir=species_dir, max_length=max_length,
                       total_size=n_data_points, batch_size=b, classification=False,
                       num_workers=num_workers
-                      ) for max_length in [1024*1, 1024*2, 1024*4]*3]
+                      ) for max_length in [1024*1, 1024*2, 1024*4]]
 
    # "both, finetune, pretrain"
-   train_runs = ["finetune"]*3 + ["pretrain"]*3 + ["both"]*3
+   train_runs = ["finetune"] + ["pretrain"] + ["both"]
 
    datasets = list(zip(train_runs, datas))
 
