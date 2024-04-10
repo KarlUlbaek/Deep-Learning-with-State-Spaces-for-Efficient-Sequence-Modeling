@@ -176,10 +176,10 @@ if __name__ == "__main__":
    #max_length = 1024*2
    n_data_points = 50000
    n_epochs = 5
-   b = 64
+   b = 32
 
    lr_base = 1e-3
-   sched_epochs_scale = 1.
+   sched_epochs_scale = 1.1
    num_workers = 4
    d = "cuda"
    lr_scale = 0.1 # 0.1
@@ -188,7 +188,7 @@ if __name__ == "__main__":
    # default params
    df = {"lr_base": lr_base, "weight_decay": weight_decay, "b":b, "n_epochs": n_epochs, "dropout":dropout}
    #pretraing params
-   pt = {"lr_base": lr_base*10, "weight_decay": 0.02, "b": b, "n_epochs": n_epochs*3,
+   pt = {"lr_base": lr_base*5, "weight_decay": 0.02, "b": b, "n_epochs": n_epochs*3,
          "dropout":0.1, "max_length_mult":1}
 
 
@@ -198,7 +198,7 @@ if __name__ == "__main__":
    datas = [Species(species=species, species_dir=species_dir, max_length=max_length,
                       total_size=n_data_points, batch_size=b, classification=False,
                       num_workers=num_workers
-                      ) for max_length in [1024*8, 1024*4, 1024*2]]
+                      ) for max_length in [1024*8]]
 
    # "both, finetune, pretrain"
    train_runs = ["both"]
