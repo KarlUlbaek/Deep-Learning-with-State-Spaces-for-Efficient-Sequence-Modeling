@@ -129,7 +129,7 @@ def set_model_dropout(model, new_dropout):
 def get_model_name(model, model_name_add):
    m_name = model.__class__.__name__ + "_" + model.s4
    m_name += "_" + str(dataset.max_length)
-   m_name += model_name_add + str(list(model.pos_emb.values())) + model.s4_kwargs.get("bi", "")
+   m_name += "_" + model_name_add + str(list(model.pos_emb.values())) + model.s4_kwargs.get("bi", "")
    if hasattr(model, "bi_s6"):
       if model.bi_s6.get("bi", 0):
          m_name += "_bi"
@@ -157,7 +157,7 @@ if __name__ == "__main__":
    from copy import deepcopy
 
    from mamba_fork.mamba_ssm.models.mixer_seq_simple import MambaModel
-   from s4_modules import S4ClassicModel, s4ClassicModule
+   from genomics import Species
    from functools import partial
 
    if torch.cuda.get_device_name(0) == "NVIDIA GeForce GTX 1080 Ti":
@@ -165,34 +165,21 @@ if __name__ == "__main__":
    else:
       fast = True
 
-
    n_layer = 6
    d_model = 116
    d_state = 16
    dropout = 0.0
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast, bi_s6={})
-
-   s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                      fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
-
-
-
-
-
    Models = [s6Mamba]#, s4dMamba]
-
-   from genomics import Species
-
-
 
    #max_length = 1024*2
    n_data_points = 50000
    n_epochs = 5
    b = 64
 
-   lr_base = (1e-3) * 0.66
-   sched_epochs = int(n_epochs * 1.3)
+   lr_base = 1e-3
+   sched_epochs_scale = 1.
    num_workers = 4
    d = "cuda"
    lr_scale = 0.1 # 0.1
@@ -201,8 +188,8 @@ if __name__ == "__main__":
    # default params
    df = {"lr_base": lr_base, "weight_decay": weight_decay, "b":b, "n_epochs": n_epochs, "dropout":dropout}
    #pretraing params
-   pt = {"lr_base": lr_base*3, "weight_decay": 0.02, "b": b, "n_epochs": n_epochs*2,
-         "dropout":0.1, "max_length_mult":2}
+   pt = {"lr_base": lr_base*10, "weight_decay": 0.02, "b": b, "n_epochs": n_epochs*3,
+         "dropout":0.1, "max_length_mult":1}
 
 
    species = ["hippo", "human", "pig", "sheep", "lemur"]
@@ -211,10 +198,10 @@ if __name__ == "__main__":
    datas = [Species(species=species, species_dir=species_dir, max_length=max_length,
                       total_size=n_data_points, batch_size=b, classification=False,
                       num_workers=num_workers
-                      ) for max_length in [1024*1, 1024*2, 1024*4]]
+                      ) for max_length in [1024*8, 1024*4, 1024*2]]
 
    # "both, finetune, pretrain"
-   train_runs = ["finetune"] + ["pretrain"] + ["both"]
+   train_runs = ["both"]
 
    datasets = list(zip(train_runs, datas))
 
@@ -227,7 +214,7 @@ if __name__ == "__main__":
    wandb_logging = True
    wandb_name = "" #""
    data_name_add = "_v1"
-   model_name_add = ""
+   model_name_add = "AgPre"
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset[1].__class__.__name__+"_"+str(dataset[1].max_length)+"_"+dataset[0] for dataset in datasets])
@@ -294,15 +281,16 @@ if __name__ == "__main__":
                m_name = get_model_name(model, model_name_add)
 
                lr = lr_base_ * (2048 / dataset.max_length)
+               sched_epochs = int(n_epochs_ * sched_epochs_scale)
                optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay_)
 
                print("####################################################################################")
                print("MODEL:", m_name)
                n_params = print_model_stats(model)
                if test_throughput: model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=dataset.max_length)
-               print(f"hparams: e:{n_epochs_}, b:{b_}, lr:{lr_base_}, w_d:{weight_decay_}, L:{dataset.max_length}, drop:{model.dropout}")
                print("DATA:", d_name)
                if test_throughput: data_throughput(train_loader)
+               print(f"hparams: e:{n_epochs_}, b:{b_}, lr:{lr_base_}, w_d:{weight_decay_}, L:{dataset.max_length}, drop:{model.dropout}")
 
                if test_mode or not wandb_logging:
                   wandb_run = None
