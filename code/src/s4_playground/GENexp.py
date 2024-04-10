@@ -144,6 +144,9 @@ if __name__ == "__main__":
                          fused_add_norm=fast, rms_norm=fast, bi_s6={},
                          bi_module={"d_model_scale": 0.9, "d_state_scale": 1.0, "tie_linear_proj":True})
 
+   s6Mamba_n = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                         fused_add_norm=fast, rms_norm=fast, bi_s6={})
+
    s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
 
@@ -151,16 +154,17 @@ if __name__ == "__main__":
 
 
 
-   Models = [s6Mamba_tie, s6Mamba]#, s4dMamba]
+   Models = [s6Mamba_tie, s6Mamba, s6Mamba_n]#, s4dMamba]
 
    from genomics import Species
 
 
 
    #max_length = 1024*2
+   lr_base = (1e-3)*0.66
    n_data_points = 50000
    n_epochs = 5
-   b = 64
+   b = 32
 
    sched_epochs = int(n_epochs * 1.3)
    num_workers = 4
@@ -175,10 +179,10 @@ if __name__ == "__main__":
    datas = [Species(species=species, species_dir=species_dir, max_length=max_length,
                       total_size=n_data_points, batch_size=b, classification=False,
                       num_workers=num_workers
-                      ) for max_length in [1024*2, 1024*4, 1024*8, 1024*16]]
+                      ) for max_length in [1024*32]]
 
    # "both, finetune, pretrain"
-   train_runs = ["finetune"]*4
+   train_runs = ["finetune"]*1
 
    datasets = list(zip(train_runs, datas))
 
@@ -248,7 +252,7 @@ if __name__ == "__main__":
                d_name = (d_name + "_pretrain") if not dataset.classification else d_name
                #print(f"\n Running on {d_name}")
 
-               lr = 1e-3 * (2048 / dataset.max_length)
+               lr = lr_base * (2048 / dataset.max_length)
                optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay)
 
                print("model:", m_name)
