@@ -122,7 +122,7 @@ def data_throughput(data_loader, warmup=5, actualrun=10):
          break
    t1 = actualrun / (time.perf_counter() - t0)
 
-   print(f"loader speed: batch{xyz[0].shape[0]} /s: {t1:.1f}" )
+   print(f"loader speed (size={xyz[0].shape[0]}): b/s: {t1:.1f}" )
 
 
 from pathlib import Path

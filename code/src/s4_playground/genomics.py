@@ -166,7 +166,8 @@ class HG38(SequenceDataset):
 
         return
 
-    def train_dataloader(self, *args: Any, **kwargs: Any) -> DataLoader:
+    def train_dataloader(self, batch_size=None, num_workers=None, shuffle=None,
+                         *args: Any, **kwargs: Any) -> DataLoader:
         """ The train dataloader """
         if self.shuffle and self.fault_tolerant:
             shuffle = False
@@ -184,25 +185,31 @@ class HG38(SequenceDataset):
                     'counter': self.fast_forward_batches * self.batch_size
                 })
         else:
-            shuffle = self.shuffle
             sampler = None
-        return self._data_loader(self.dataset_train, batch_size=self.batch_size,
-                                 shuffle=shuffle, sampler=sampler)
+            shuffle = self.shuffle if shuffle is None else shuffle
+            batch_size = self.batch_size if batch_size is None else batch_size
+            num_workers = self.num_workers if num_workers is None else num_workers
+        return self._data_loader(self.dataset_train, batch_size=batch_size,
+                                 shuffle=shuffle, num_workers=num_workers, sampler=sampler)
 
-    def val_dataloader(self, *args: Any, **kwargs: Any) -> Union[DataLoader, List[DataLoader]]:
+    def val_dataloader(self, batch_size=None, num_workers=None, *args: Any, **kwargs: Any) -> Union[DataLoader, List[DataLoader]]:
         """ The val dataloader """
-        return self._data_loader(self.dataset_val, batch_size=self.batch_size_eval)
+        batch_size = self.batch_size if batch_size is None else batch_size
+        num_workers = self.num_workers if num_workers is None else num_workers
+        return self._data_loader(self.dataset_val, batch_size=batch_size, num_workers=num_workers)
 
-    def test_dataloader(self, *args: Any, **kwargs: Any) -> Union[DataLoader, List[DataLoader]]:
-        """ The test dataloader """
-        return self._data_loader(self.dataset_test, batch_size=self.batch_size_eval)
+    def test_dataloader(self, batch_size=None, num_workers=None, *args: Any, **kwargs: Any) -> Union[DataLoader, List[DataLoader]]:
+        """ The val dataloader """
+        batch_size = self.batch_size if batch_size is None else batch_size
+        num_workers = self.num_workers if num_workers is None else num_workers
+        return self._data_loader(self.dataset_test, batch_size=batch_size, num_workers=num_workers)
 
     def _data_loader(self, dataset: Dataset, batch_size: int, shuffle: bool = False,
-                     sampler=None) -> DataLoader:
+                     sampler=None, num_workers=0) -> DataLoader:
         return DataLoader(
             dataset,
             batch_size=batch_size,
-            num_workers=self.num_workers,  # Data is already in memory, we don't need many workers
+            num_workers=num_workers,  # Data is already in memory, we don't need many workers
             shuffle=shuffle,
             sampler=sampler,
             drop_last=self.drop_last,
