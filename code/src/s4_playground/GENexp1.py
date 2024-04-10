@@ -176,7 +176,7 @@ if __name__ == "__main__":
    #max_length = 1024*2
    n_data_points = 50000
    n_epochs = 5
-   b = 32
+   b = 64
 
    lr_base = 1e-3
    sched_epochs_scale = 1.1
@@ -188,8 +188,8 @@ if __name__ == "__main__":
    # default params
    df = {"lr_base": lr_base, "weight_decay": weight_decay, "b":b, "n_epochs": n_epochs, "dropout":dropout}
    #pretraing params
-   pt = {"lr_base": lr_base*5, "weight_decay": 0.02, "b": b, "n_epochs": n_epochs*3,
-         "dropout":0.1, "max_length_mult":1}
+   pt = {"lr_base": lr_base*5, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*3,
+         "dropout":0.0, "max_length_mult":1}
 
 
    species = ["hippo", "human", "pig", "sheep", "lemur"]
@@ -214,7 +214,7 @@ if __name__ == "__main__":
    wandb_logging = True
    wandb_name = "" #""
    data_name_add = "_v1"
-   model_name_add = "AgPre"
+   model_name_add = "LongPre"
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset[1].__class__.__name__+"_"+str(dataset[1].max_length)+"_"+dataset[0] for dataset in datasets])
@@ -287,7 +287,8 @@ if __name__ == "__main__":
                print("####################################################################################")
                print("MODEL:", m_name)
                n_params = print_model_stats(model)
-               if test_throughput: model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=dataset.max_length)
+               if test_throughput: model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, e=n_epochs_,
+                                                    len_data_loader=len(train_loader), b=b, L=dataset.max_length)
                print("DATA:", d_name)
                if test_throughput: data_throughput(train_loader)
                print(f"hparams: e:{n_epochs_}, b:{b_}, lr:{lr_base_}, w_d:{weight_decay_}, L:{dataset.max_length}, drop:{model.dropout}")

@@ -71,7 +71,8 @@ def print_model_stats(model):
    return trainable_params
 
 # assumes tokesn atm
-def model_throughput(model, vocab_size, d_input, b=64, L=1000, reps=10):
+def model_throughput(model, vocab_size, d_input,
+                     len_data_loader, e, b, L=1000, reps=10):
    opt = AdamW(model.parameters(), lr=1e-9)
    if vocab_size is not None:
       batch = (torch.rand((b, L))*(vocab_size-1)).to(torch.long).abs()
@@ -109,6 +110,8 @@ def model_throughput(model, vocab_size, d_input, b=64, L=1000, reps=10):
 
    print(f"far/back mem GB: {mem1/1e9:.1f}, {mem2/1e9:.1f}")
    print(f"far/back speed b/s: {1/t1:.1f}, {1/t2:.1f}")
+   est = int(((t2)*len_data_loader*e)/(60))
+   print(f"estimated training time: {est}m")
    model = model.to("cpu")
 
 def data_throughput(data_loader, warmup=5, actualrun=10):
