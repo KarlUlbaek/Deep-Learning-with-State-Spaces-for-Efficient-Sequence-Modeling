@@ -61,16 +61,14 @@ class RotaryEmbeddingCustom(torch.nn.Module):
          return x
 
 def print_model_stats(model):
-   name = model.__class__.__name__ + " " + model.s4
    n_layer, d_state, d_model = model.n_layer, model.d_state, model.d_model
    trainable_params = sum([param.numel() for param in model.parameters() if param.requires_grad])
    nontrainable_params = sum([param.numel() for param in model.parameters() if not param.requires_grad])
-   print("####################################################################################")
-   print(f"{name}: trainable {trainable_params/1e6:.3f}m, \n"
+   print(f"trainable: {trainable_params/1e6:.3f}m, \n"
          f"n_layers: {n_layer}, d_model: {d_model}, d_state: {d_state}")
    if nontrainable_params != 0: print("Non-trainbale params:", nontrainable_params)
    #print("####################################################################################")
-   return name, trainable_params
+   return trainable_params
 
 # assumes tokesn atm
 def model_throughput(model, vocab_size, d_input, b=64, L=1000, reps=10):
@@ -113,8 +111,8 @@ def model_throughput(model, vocab_size, d_input, b=64, L=1000, reps=10):
    print(f"far/back speed b/s: {1/t1:.1f}, {1/t2:.1f}")
    model = model.to("cpu")
 
-def data_throughput(data_loader, name, warmup=5, actualrun=10):
-   for i, _ in enumerate(data_loader):
+def data_throughput(data_loader, warmup=5, actualrun=10):
+   for i, xyz in enumerate(data_loader):
       if i == warmup:
          break
 
@@ -124,7 +122,7 @@ def data_throughput(data_loader, name, warmup=5, actualrun=10):
          break
    t1 = actualrun / (time.perf_counter() - t0)
 
-   print(f"{name} batch per sec: {t1:.1f}" )
+   print(f"loader speed: batch{xyz[0].shape[0]} /s: {t1:.1f}" )
 
 
 from pathlib import Path
