@@ -126,6 +126,8 @@ class SpeciesDataset(torch.utils.data.Dataset):
             remove_tail_ends=False,
             cutoff_train=0.1,
             cutoff_test=0.2,
+            mlm=0.0,
+            classification=False
     ):
         """
         `chromosome_weights` => can be either...
@@ -152,6 +154,8 @@ class SpeciesDataset(torch.utils.data.Dataset):
         self.remove_tail_ends = remove_tail_ends
         self.cutoff_train = cutoff_train
         self.cutoff_test = cutoff_test
+        self.mlm = mlm
+        self.classification = classification
 
         if task == 'species_classification' and self.d_output < 2:
             print(
@@ -277,6 +281,33 @@ class SpeciesDataset(torch.utils.data.Dataset):
             print(f"Species weights: {list(zip(self.species, self.species_weights))}")
             print(f"Chromosome weights: {self.chromosome_weights}")
 
+    # function is from .torch_mask_tokens method of
+    #
+    from transformers import DataCollatorForLanguageModeling
+    def MLM(self, inputs):
+        labels = inputs.clone()
+
+        probability_matrix = torch.full(labels.shape, self.mlm)
+
+        # all labels less than 7 are special tokens
+        special_tokens_mask = (labels < 7).bool()
+        probability_matrix.masked_fill_(special_tokens_mask, value=0.0)
+
+        masked_indices = torch.bernoulli(probability_matrix).bool()
+        labels[~masked_indices] = -100  # We only compute loss on masked tokens
+
+        # 80% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
+        indices_replaced = torch.bernoulli(torch.full(labels.shape, 0.8)).bool() & masked_indices
+        inputs[indices_replaced] = self.tokenizer.convert_tokens_to_ids(self.tokenizer.mask_token)
+
+        # 10% of the time, we replace masked input tokens with random word
+        indices_random = torch.bernoulli(
+            torch.full(labels.shape, 0.5)).bool() & masked_indices & ~indices_replaced
+        random_words = torch.randint(len(self.tokenizer), labels.shape, dtype=torch.long)
+        inputs[indices_random] = random_words[indices_random]
+
+        return inputs, labels
+
     def __len__(self):
         assert self.total_size is not None, "Must set the `total_size` kwarg when you initialize `SpeciesDataset` before calling `__len__`."
         return self.total_size
@@ -383,6 +414,9 @@ class SpeciesDataset(torch.utils.data.Dataset):
         if is_show_log:
             print(f"Sampled tokens of len={len(seq)}: {seq[:10]}...{seq[-10:]}")
             print(f"Sampled target: {target}")
+
+        if self.mlm > 0.0 and not self.classfication:
+            data, target = self.MLM(inputs=data)
 
         return data, target
 
