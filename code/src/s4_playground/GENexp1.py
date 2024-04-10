@@ -176,7 +176,7 @@ if __name__ == "__main__":
    #max_length = 1024*2
    n_data_points = 50000
    n_epochs = 5
-   b = 64
+   b = 2
 
    lr_base = 1e-3
    sched_epochs_scale = 1.1
@@ -204,6 +204,8 @@ if __name__ == "__main__":
    train_runs = ["both"]
 
    datasets = list(zip(train_runs, datas))
+   pretrain_name = "pretrain" #"pretrain_big"
+   finetune_name = "finetune" #"finetune_small"
 
    d_output = 5
    vocab_size = 12
@@ -223,7 +225,7 @@ if __name__ == "__main__":
    for test_mode in test_modes:
       for Model in Models:
          for training_plan, dataset in datasets:
-            dataset = dataset.setup("pretrain") #always init to pretraining
+            dataset = dataset.setup(pretrain_name) #always init to pretraining
             max_length_default = dataset.max_length # store default for later
             assert training_plan in ["pretrain", "finetune", "both"]#, "train"]
 
@@ -248,7 +250,7 @@ if __name__ == "__main__":
                   model.d_output = d_output
                   model.decoder = torch.nn.Linear(d_model, d_output) # change head of model to output one of the 5 classes
 
-                  dataset.setup("finetune")
+                  dataset.setup(finetune_name)
                   dataset.classification = True # this needs to be set after or it will default back to False
 
 
@@ -260,7 +262,7 @@ if __name__ == "__main__":
                   model = set_model_dropout(model, pt["dropout"])
 
                   dataset.max_length = int(max_length_default * (pt["max_length_mult"]))
-                  dataset.setup("pretrain")
+                  dataset.setup(pretrain_name)
 
 
                else: # will do both pretraining and finetuning
@@ -269,7 +271,7 @@ if __name__ == "__main__":
                   model = set_model_dropout(model, pt["dropout"])
 
                   dataset.max_length = int(max_length_default * (pt["max_length_mult"]))
-                  dataset.setup("pretrain")
+                  dataset.setup(pretrain_name)
 
                model = model.to(d)
                train_loader = dataset.train_dataloader(batch_size=b_, num_workers=num_workers, shuffle=True)

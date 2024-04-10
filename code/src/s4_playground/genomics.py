@@ -301,7 +301,7 @@ class Species(HG38):
         return self
 
     def init_datasets(self, split="train"):
-        assert split in ["pretrain", "finetune", "train"], f"split was {split} but must be one of pretrain, finetune, train"
+        assert split in ["pretrain", "finetune", "train", "pretrain_big", "finetune_small"], f"split was {split} but must be one of [pretrain, finetune, train, pretrain_big, finetune_small]"
 
         # delete old datasets
         # NOTE: For some reason only works to close files for train
