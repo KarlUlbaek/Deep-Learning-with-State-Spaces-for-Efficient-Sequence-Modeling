@@ -176,19 +176,19 @@ if __name__ == "__main__":
    #max_length = 1024*2
    n_data_points = 50000
    n_epochs = 5
-   b = 2
+   b = 64
 
-   lr_base = 1e-3
-   sched_epochs_scale = 1.1
+   lr_base = 1e-5
+   sched_epochs_scale = 2.0
    num_workers = 4
    d = "cuda"
-   lr_scale = 0.1 # 0.1
+   lr_scale = 1.0 # 0.1
    weight_decay = 0.0 # 0.01
    criterion = CrossEntropyLoss()
    # default params
    df = {"lr_base": lr_base, "weight_decay": weight_decay, "b":b, "n_epochs": n_epochs, "dropout":dropout}
    #pretraing params
-   pt = {"lr_base": lr_base*5, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*3,
+   pt = {"lr_base": lr_base*300, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
          "dropout":0.0, "max_length_mult":1}
 
 
@@ -204,8 +204,8 @@ if __name__ == "__main__":
    train_runs = ["both"]
 
    datasets = list(zip(train_runs, datas))
-   pretrain_name = "pretrain" #"pretrain_big"
-   finetune_name = "finetune" #"finetune_small"
+   pretrain_name = "pretrain_big" #"pretrain_big"
+   finetune_name = "finetune_small" #"finetune_small"
 
    d_output = 5
    vocab_size = 12
@@ -215,8 +215,8 @@ if __name__ == "__main__":
    run_test_run = True
    wandb_logging = True
    wandb_name = "" #""
-   data_name_add = "_v1"
-   model_name_add = "LongPre"
+   data_name_add = "_v2"
+   model_name_add = "LowLR"
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset[1].__class__.__name__+"_"+str(dataset[1].max_length)+"_"+dataset[0] for dataset in datasets])

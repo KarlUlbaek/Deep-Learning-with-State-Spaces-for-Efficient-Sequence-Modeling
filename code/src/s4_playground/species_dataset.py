@@ -300,7 +300,7 @@ class SpeciesDataset(torch.utils.data.Dataset):
         chromosome_length: int = len(fasta)
         # rand = random.Random() # maps idx -> random seed, without affecting global random state
         # rand.seed(idx + 2)
-        print("chrome:", chromosome)
+        #print("chrome:", chromosome)
 
         if self.remove_tail_ends:
             if self.split == 'train':
