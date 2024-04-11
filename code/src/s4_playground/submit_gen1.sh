@@ -1,14 +1,15 @@
 #!/bin/sh
 ### General options
 ### –- specify queue --
-#BSUB -q gpua100
-#BSUB -J hard_task
+#BSUB -q gpuv100
+#BSUB -R "select[gpu32gb]"
+#BSUB -J nonbi
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 6
 ### -- Select the resources: 1 gpu in exclusive process mode --
 #BSUB -gpu "num=1:mode=exclusive_process"
 ### -- set walltime limit: hh:mm --  maximum 24 hours for GPU-queues right now
-#BSUB -W 3:00
+#BSUB -W 5:00
 # request 5GB of system-memory
 #BSUB -R "rusage[mem=16GB]"
 ### -- set the email address --

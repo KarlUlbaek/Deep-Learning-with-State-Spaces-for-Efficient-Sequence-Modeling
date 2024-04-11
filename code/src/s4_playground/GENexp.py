@@ -285,7 +285,6 @@ if __name__ == "__main__":
                assert train_loader is not None, "TRAIN LOADER NONE. CAOS"
 
                d_name = get_data_name(dataset, data_name_add)
-               m_name = get_model_name(model, model_name_add)
 
                lr = lr_base_ * (2048 / dataset.max_length)
                optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs_, weight_decay=weight_decay_)

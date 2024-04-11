@@ -186,7 +186,7 @@ if __name__ == "__main__":
    n_epochs = 5
    b = 64
 
-   lr_base = 1e-4
+   lr_base = 2e-3
    num_workers = 4
    d = "cuda"
    lr_scale = 0.1 # 0.1
@@ -195,11 +195,11 @@ if __name__ == "__main__":
    # default params
    df = {"lr_base": lr_base, "weight_decay": weight_decay, "b":b, "n_epochs": n_epochs, "dropout":dropout}
    #pretraing params
-   pt = {"lr_base": lr_base*80, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
+   pt = {"lr_base": lr_base*4, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
          "dropout":0.0, "max_length_mult":1}
 
    # "both, finetune, pretrain"
-   Models = [s6Mamba_bi]#, s6Mamba]
+   Models = [s6Mamba]#, s6Mamba]
    sizes = [1024 * 8]
    train_runs = ["both"]
 
@@ -285,7 +285,6 @@ if __name__ == "__main__":
                assert train_loader is not None, "TRAIN LOADER NONE. CAOS"
 
                d_name = get_data_name(dataset, data_name_add)
-               m_name = get_model_name(model, model_name_add)
 
                lr = lr_base_ * (2048 / dataset.max_length)
                optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs_, weight_decay=weight_decay_)
