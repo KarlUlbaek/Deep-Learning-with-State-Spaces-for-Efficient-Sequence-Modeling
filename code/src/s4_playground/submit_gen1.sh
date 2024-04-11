@@ -2,7 +2,7 @@
 ### General options
 ### –- specify queue --
 #BSUB -q gpua100
-#BSUB -J 16k
+#BSUB -J hard_task
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 6
 ### -- Select the resources: 1 gpu in exclusive process mode --

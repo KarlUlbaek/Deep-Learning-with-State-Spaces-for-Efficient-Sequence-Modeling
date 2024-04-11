@@ -171,15 +171,18 @@ if __name__ == "__main__":
    dropout = 0.0
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast, bi_s6={})
-   Models = [s6Mamba]#, s4dMamba]
+   s6Mamba_bi = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                     fused_add_norm=fast, rms_norm=fast,
+                     bi_module={"d_model_scale":0.9, "d_state_scale":1.0, "tie_linear_proj":True})
+   #, s4dMamba]
 
    #max_length = 1024*2
    n_data_points = 50000
    n_epochs = 5
-   b = 2
+   b = 64
 
-   lr_base = 1e-3
-   sched_epochs_scale = 1.1
+   lr_base = 1e-4
+   sched_epochs_scale = 1.6
    num_workers = 4
    d = "cuda"
    lr_scale = 0.1 # 0.1
@@ -188,24 +191,24 @@ if __name__ == "__main__":
    # default params
    df = {"lr_base": lr_base, "weight_decay": weight_decay, "b":b, "n_epochs": n_epochs, "dropout":dropout}
    #pretraing params
-   pt = {"lr_base": lr_base*5, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*3,
+   pt = {"lr_base": lr_base*80, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
          "dropout":0.0, "max_length_mult":1}
 
+   # "both, finetune, pretrain"
+   Models = [s6Mamba]#, s6Mamba]
+   sizes = [1024 * 8]
+   train_runs = ["both"]
+
+   pretrain_name = "pretrain_big" #"pretrain_big"
+   finetune_name = "finetune_small" #"finetune_small"
 
    species = ["hippo", "human", "pig", "sheep", "lemur"]
    species_dir = "../data/species"
-
    datas = [Species(species=species, species_dir=species_dir, max_length=max_length,
                       total_size=n_data_points, batch_size=b, classification=False,
                       num_workers=num_workers
-                      ) for max_length in [1024*8]]
-
-   # "both, finetune, pretrain"
-   train_runs = ["both"]
-
+                      ) for max_length in sizes]
    datasets = list(zip(train_runs, datas))
-   pretrain_name = "pretrain" #"pretrain_big"
-   finetune_name = "finetune" #"finetune_small"
 
    d_output = 5
    vocab_size = 12
@@ -215,8 +218,8 @@ if __name__ == "__main__":
    run_test_run = True
    wandb_logging = True
    wandb_name = "" #""
-   data_name_add = "_v1"
-   model_name_add = "LongPre"
+   data_name_add = "_v2"
+   model_name_add = "lrslow"
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset[1].__class__.__name__+"_"+str(dataset[1].max_length)+"_"+dataset[0] for dataset in datasets])
@@ -248,7 +251,7 @@ if __name__ == "__main__":
 
                   model.classification = True
                   model.d_output = d_output
-                  model.decoder = torch.nn.Linear(d_model, d_output) # change head of model to output one of the 5 classes
+                  model.decoder = torch.nn.Linear(model.d_model, d_output) # change head of model to output one of the 5 classes
 
                   dataset.setup(finetune_name)
                   dataset.classification = True # this needs to be set after or it will default back to False
@@ -293,7 +296,7 @@ if __name__ == "__main__":
                                                     len_data_loader=len(train_loader), b=b, L=dataset.max_length)
                print("DATA:", d_name)
                if test_throughput: data_throughput(train_loader)
-               print(f"hparams: e:{n_epochs_}, b:{b_}, lr:{lr_base_}, w_d:{weight_decay_}, L:{dataset.max_length}, drop:{model.dropout}")
+               print(f"hparams: e:{n_epochs_}, b:{b_}, lr:{lr}, w_d:{weight_decay_}, L:{dataset.max_length}, drop:{model.dropout}")
 
                if test_mode or not wandb_logging:
                   wandb_run = None
