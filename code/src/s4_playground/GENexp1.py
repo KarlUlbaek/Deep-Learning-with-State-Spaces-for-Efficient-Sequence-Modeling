@@ -184,7 +184,7 @@ if __name__ == "__main__":
    #max_length = 1024*2
    n_data_points = 50000
    n_epochs = 5
-   b = 16
+   b = 64
 
    lr_base = 1e-4
    num_workers = 4
