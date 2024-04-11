@@ -127,7 +127,8 @@ class SpeciesDataset(torch.utils.data.Dataset):
             cutoff_train=0.1,
             cutoff_test=0.2,
             mlm=0.0,
-            classification=False
+            classification=False,
+            finetune_len=-1
     ):
         """
         `chromosome_weights` => can be either...
@@ -156,6 +157,7 @@ class SpeciesDataset(torch.utils.data.Dataset):
         self.cutoff_test = cutoff_test
         self.mlm = mlm
         self.classification = classification
+        self.finetune_len = finetune_len
 
         if task == 'species_classification' and self.d_output < 2:
             print(
@@ -329,9 +331,12 @@ class SpeciesDataset(torch.utils.data.Dataset):
         # print("****", spec, chromosome, self.fastas[spec].keys(), idx)
         fasta = self.fastas[spec][chromosome][0]  # idx into 0 b/c only one fasta per chromosome
         chromosome_length: int = len(fasta)
+        if self.finetune_len > 0:
+            chromosome_length = min(self.finetune_len, chromosome_length)
         # rand = random.Random() # maps idx -> random seed, without affecting global random state
         # rand.seed(idx + 2)
         #print("chrome:", chromosome)
+        #print(spec, chromosome_length)
 
         if self.remove_tail_ends:
             if self.split == 'train':

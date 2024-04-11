@@ -235,7 +235,7 @@ class Species(HG38):
                  shuffle=True, pin_memory=True, drop_last=True, fault_tolerant=False, ddp=False,
                  fast_forward_epochs=None, fast_forward_batches=None, chromosome_weights='uniform', species_weights='uniform',
                 total_size=None, task='species_classification', remove_tail_ends=False, cutoff_train=0.1, cutoff_test=0.2,
-                 classification=True, mlm=0.0, *args, **kwargs):
+                 classification=True, finetune_len=-1, mlm=0.0, *args, **kwargs):
         self.dataset_config_name = dataset_config_name
         self.tokenizer_name = tokenizer_name
         self.rc_aug = rc_aug  # reverse compliment augmentation
@@ -267,7 +267,8 @@ class Species(HG38):
         self.classification = classification
         self.n_tokens = 12 # hardcoded for this problem
         self.mlm = mlm
-        
+        self.finetune_len=finetune_len
+
         if fault_tolerant:
             assert self.shuffle
         self.fault_tolerant = fault_tolerant
@@ -279,9 +280,10 @@ class Species(HG38):
         if self.fast_forward_epochs is not None or self.fast_forward_batches is not None:
             assert ddp and fault_tolerant
 
-    def setup(self, split="train", classification=False, bi = False, stage=None):
+    def setup(self, split="train", classification=False, bi = False, finetune_len=-1, stage=None):
         self.classification = classification
         self.mlm = 0.15 if bi else 0.0
+        self.finetune_len = finetune_len
         if self.tokenizer_name == 'char':
             #print("**Using Char-level tokenizer**")
             self.tokenizer = CharacterTokenizer(
@@ -338,7 +340,8 @@ class Species(HG38):
                             cutoff_train=self.cutoff_train,
                             cutoff_test=self.cutoff_test,
                             mlm=self.mlm,
-                            classification=self.classification
+                            classification=self.classification,
+                            finetune_len=self.finetune_len
                             )
             for split, max_len in zip([split, 'valid', 'test'], [self.max_length, self.max_length_val, self.max_length_test])
         ]

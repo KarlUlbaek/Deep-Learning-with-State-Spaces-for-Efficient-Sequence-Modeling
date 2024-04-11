@@ -61,7 +61,7 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
          # break early due to test mode
          if test_mode and batch_idx == 1: break
 
-      info_dict = eval(model, eval_loader, info_dict, test_mode, criterion, classification)
+      info_dict = eval(model, eval_loader, info_dict, test_mode, criterion, classification, bi=bi)
       info_dict["lr"] = scheduler.get_last_lr()[0]
       scheduler.step()
 
@@ -95,13 +95,13 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
 
       #if batch_idx % 20 == 0:
 @torch.no_grad()
-def eval(model, eval_loader, info_dict, test_mode, criterion, classification=True):
+def eval(model, eval_loader, info_dict, test_mode, criterion, classification=True, bi=False):
    model.eval()
    all_preds = []
    ys = []
    for idx, xy_ in enumerate(eval_loader):
       x = xy_[0].to(d)
-      y = xy_[1].to(d) if classification else x
+      y = xy_[1].to(d) if classification or bi else x
       pred = model(x)
       all_preds.append(pred)
       ys.append(y)
@@ -111,9 +111,14 @@ def eval(model, eval_loader, info_dict, test_mode, criterion, classification=Tru
    all_preds = torch.cat(all_preds)
    ys = torch.cat(ys)
    if classification:
-      test_acc = torch.mean((torch.argmax(all_preds, dim=-1) == ys).to(float))
+      test_acc = (torch.argmax(all_preds, dim=-1) == ys).float().mean()
       info_dict["test acc"] = test_acc.cpu().item()
-   else:
+
+   elif bi: #bi pretraining
+      per = torch.exp(criterion(all_preds.transpose(-1,-2), ys))
+      info_dict["test per"] = per.cpu().item()
+
+   else: # causal pretraining
       per = torch.exp(criterion(all_preds[:,:-1,:].transpose(-1,-2), ys[:,1:]))
       info_dict["test per"] = per.cpu().item()
 
@@ -173,7 +178,7 @@ if __name__ == "__main__":
    n_layer = 6
    d_model = 116
    d_state = 16
-   dropout = 0.0
+   dropout = 0.1
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast, bi_s6={})
    s6Mamba_bi = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
@@ -182,29 +187,30 @@ if __name__ == "__main__":
    #, s4dMamba]
 
    #max_length = 1024*2
-   n_data_points = 50000
+   n_data_points = 50_000
    n_epochs = 5
    b = 64
 
-   lr_base = 2e-3
+   lr_base = 1e-4
    num_workers = 4
    d = "cuda"
    lr_scale = 0.1 # 0.1
-   weight_decay = 0.0 # 0.01
+   weight_decay = 0.01 # 0.01
    criterion = CrossEntropyLoss()
    # default params
    df = {"lr_base": lr_base, "weight_decay": weight_decay, "b":b, "n_epochs": n_epochs, "dropout":dropout}
    #pretraing params
-   pt = {"lr_base": lr_base*4, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
+   pt = {"lr_base": lr_base*8*10, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
          "dropout":0.0, "max_length_mult":1}
 
    # "both, finetune, pretrain"
-   Models = [s6Mamba]#, s6Mamba]
+   Models = [s6Mamba_bi, s6Mamba]
    sizes = [1024 * 8]
    train_runs = ["both"]
 
    pretrain_name = "pretrain_big" #"pretrain_big"
    finetune_name = "finetune_small" #"finetune_small"
+   finetune_len = 10_000_000 #-1 disables i.e. takes all values
 
    species = ["hippo", "human", "pig", "sheep", "lemur"]
    species_dir = "../data/species"
@@ -222,8 +228,8 @@ if __name__ == "__main__":
    run_test_run = True
    wandb_logging = True
    wandb_name = "" #""
-   data_name_add = "_v2"
-   model_name_add = ""
+   data_name_add = "_v3"
+   model_name_add = "LowLR"
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset[1].__class__.__name__+"_"+str(dataset[1].max_length)+"_"+dataset[0] for dataset in datasets])
@@ -257,7 +263,7 @@ if __name__ == "__main__":
                   model.d_output = d_output
                   model.decoder = torch.nn.Linear(model.d_model, d_output) # change head of model to output one of the 5 classes
 
-                  dataset.setup(finetune_name, classification=True)
+                  dataset.setup(finetune_name, classification=True, finetune_len=finetune_len)
 
                elif training_plan == "pretrain": #only pretraining!
                   print("\npretraining only!")
