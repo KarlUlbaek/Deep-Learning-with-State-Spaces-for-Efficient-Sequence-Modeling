@@ -10,7 +10,7 @@ from s4_playground.misc import setup_optimizer, print_model_stats, model_through
 
 
 def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_run,
-            improvement_demand=0.01, classification=True):
+            improvement_demand=0.01, classification=True, bi=False):
 
    info_dict, train_acc = {}, 0
    for epoch_idx in range(n_epochs):
@@ -20,16 +20,21 @@ def trainer(model, train_loader, eval_loader, test_mode, criterion, optimizer, s
                         desc="E: {}/{}".format(epoch_idx+1, n_epochs),
                         unit="b")
       p_bar.set_postfix(info_dict)
-      correct, tot, tot_loss = 0, 0, 0
+      correct, tot, tot_loss = .0, .0, .0
       model.train()
       random_guess = 1 / model.d_output
 
       for batch_idx, xy_ in p_bar:
-         if classification:
+         if classification or bi:
             x, y = xy_[0].to(d), xy_[1].to(d)
             pred = model(x)
-            loss = criterion(pred, y)
-         else:
+
+            if not classification and bi: # masked language modeling
+               loss = criterion(pred.transpose(-1,-2), y)
+            else: # regular classification
+               loss = criterion(pred, y)
+
+         else: # causual/next word prediction
             x = xy_[0].to(d)
             pred = model(x)
             loss = criterion(pred[:,:-1,:].transpose(-1,-2), x[:,1:])
@@ -179,10 +184,9 @@ if __name__ == "__main__":
    #max_length = 1024*2
    n_data_points = 50000
    n_epochs = 5
-   b = 64
+   b = 16
 
    lr_base = 1e-4
-   sched_epochs_scale = 1.6
    num_workers = 4
    d = "cuda"
    lr_scale = 0.1 # 0.1
@@ -195,7 +199,7 @@ if __name__ == "__main__":
          "dropout":0.0, "max_length_mult":1}
 
    # "both, finetune, pretrain"
-   Models = [s6Mamba]#, s6Mamba]
+   Models = [s6Mamba_bi]#, s6Mamba]
    sizes = [1024 * 8]
    train_runs = ["both"]
 
@@ -219,7 +223,7 @@ if __name__ == "__main__":
    wandb_logging = True
    wandb_name = "" #""
    data_name_add = "_v2"
-   model_name_add = "lrslow"
+   model_name_add = ""
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset[1].__class__.__name__+"_"+str(dataset[1].max_length)+"_"+dataset[0] for dataset in datasets])
@@ -253,9 +257,7 @@ if __name__ == "__main__":
                   model.d_output = d_output
                   model.decoder = torch.nn.Linear(model.d_model, d_output) # change head of model to output one of the 5 classes
 
-                  dataset.setup(finetune_name)
-                  dataset.classification = True # this needs to be set after or it will default back to False
-
+                  dataset.setup(finetune_name, classification=True)
 
                elif training_plan == "pretrain": #only pretraining!
                   print("\npretraining only!")
@@ -265,7 +267,7 @@ if __name__ == "__main__":
                   model = set_model_dropout(model, pt["dropout"])
 
                   dataset.max_length = int(max_length_default * (pt["max_length_mult"]))
-                  dataset.setup(pretrain_name)
+                  dataset.setup(pretrain_name, classification=False, bi=bool(model.bi_module))
 
 
                else: # will do both pretraining and finetuning
@@ -274,7 +276,7 @@ if __name__ == "__main__":
                   model = set_model_dropout(model, pt["dropout"])
 
                   dataset.max_length = int(max_length_default * (pt["max_length_mult"]))
-                  dataset.setup(pretrain_name)
+                  dataset.setup(pretrain_name, classification=False, bi=bool(model.bi_module))
 
                model = model.to(d)
                train_loader = dataset.train_dataloader(batch_size=b_, num_workers=num_workers, shuffle=True)
@@ -286,8 +288,7 @@ if __name__ == "__main__":
                m_name = get_model_name(model, model_name_add)
 
                lr = lr_base_ * (2048 / dataset.max_length)
-               sched_epochs = int(n_epochs_ * sched_epochs_scale)
-               optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay_)
+               optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs_, weight_decay=weight_decay_)
 
                print("####################################################################################")
                print("MODEL:", m_name)
@@ -309,7 +310,7 @@ if __name__ == "__main__":
 
                _ = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
                                 criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs_,
-                                wandb_run=wandb_run, classification=dataset.classification)
+                                wandb_run=wandb_run, classification=dataset.classification, bi=bool(model.bi_module))
                dataset.max_length = max_length_default
                model = model.to("cpu")
                run += 1

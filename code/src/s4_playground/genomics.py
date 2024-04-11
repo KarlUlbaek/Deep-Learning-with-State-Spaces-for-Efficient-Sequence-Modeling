@@ -279,8 +279,9 @@ class Species(HG38):
         if self.fast_forward_epochs is not None or self.fast_forward_batches is not None:
             assert ddp and fault_tolerant
 
-    def setup(self, split="train", classification=False, stage=None):
+    def setup(self, split="train", classification=False, bi = False, stage=None):
         self.classification = classification
+        self.mlm = 0.15 if bi else 0.0
         if self.tokenizer_name == 'char':
             #print("**Using Char-level tokenizer**")
             self.tokenizer = CharacterTokenizer(

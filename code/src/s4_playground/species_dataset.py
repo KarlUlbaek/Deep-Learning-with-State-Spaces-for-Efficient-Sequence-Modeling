@@ -415,7 +415,7 @@ class SpeciesDataset(torch.utils.data.Dataset):
             print(f"Sampled tokens of len={len(seq)}: {seq[:10]}...{seq[-10:]}")
             print(f"Sampled target: {target}")
 
-        if self.mlm > 0.0 and not self.classfication:
+        if self.mlm > 0.0 and not self.classification:
             data, target = self.MLM(inputs=data)
 
         return data, target

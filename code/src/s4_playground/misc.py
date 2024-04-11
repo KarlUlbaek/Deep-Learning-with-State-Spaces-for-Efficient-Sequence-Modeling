@@ -16,7 +16,7 @@ def setup_optimizer(model, opt=AdamW, Sched=CosSched, lr=1e-3, lr_scale = 0.1, w
       {"params": params_ABC, "lr": lr * lr_scale, "weight_decay": 0.0}],
       lr=lr, weight_decay=weight_decay)
 
-   scheduler = Sched(optimizer, epochs)
+   scheduler = Sched(optimizer, epochs, eta_min=lr*0.1)
 
    return optimizer, scheduler
 
