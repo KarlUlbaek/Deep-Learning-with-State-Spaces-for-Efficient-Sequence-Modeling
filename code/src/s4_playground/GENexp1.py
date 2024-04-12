@@ -178,7 +178,7 @@ if __name__ == "__main__":
    n_layer = 6
    d_model = 116
    d_state = 16
-   dropout = 0.1
+   dropout = 0.15
    s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast, bi_s6={})
    s6Mamba_bi = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
@@ -189,18 +189,18 @@ if __name__ == "__main__":
    #max_length = 1024*2
    n_data_points = 50_000
    n_epochs = 5
-   b = 64
+   b = 32
 
    lr_base = 1e-4
    num_workers = 4
    d = "cuda"
    lr_scale = 0.1 # 0.1
-   weight_decay = 0.01 # 0.01
+   weight_decay = 0.03 # 0.01
    criterion = CrossEntropyLoss()
    # default params
    df = {"lr_base": lr_base, "weight_decay": weight_decay, "b":b, "n_epochs": n_epochs, "dropout":dropout}
    #pretraing params
-   pt = {"lr_base": lr_base*8*10, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
+   pt = {"lr_base": lr_base*10*4, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
          "dropout":0.0, "max_length_mult":1}
 
    # "both, finetune, pretrain"
@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
    pretrain_name = "pretrain_big" #"pretrain_big"
    finetune_name = "finetune_small" #"finetune_small"
-   finetune_len = 10_000_000 #-1 disables i.e. takes all values
+   finetune_len = 1_000_000 #-1 disables i.e. takes all values
 
    species = ["hippo", "human", "pig", "sheep", "lemur"]
    species_dir = "../data/species"
@@ -228,8 +228,8 @@ if __name__ == "__main__":
    run_test_run = True
    wandb_logging = True
    wandb_name = "" #""
-   data_name_add = "_v3"
-   model_name_add = "LowLR"
+   data_name_add = "_v4"
+   model_name_add = "LowLr"
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset[1].__class__.__name__+"_"+str(dataset[1].max_length)+"_"+dataset[0] for dataset in datasets])
