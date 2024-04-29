@@ -72,6 +72,7 @@ class CIFAR10(ImageResolutionSequenceDataset):
     def init_defaults(self):
         return {
             "permute": None,
+            "l_max": 1024,
             "classification": True,
             "grayscale": False,
             "tokenize": False,  # if grayscale, tokenize into discrete byte inputs

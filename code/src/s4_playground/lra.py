@@ -69,18 +69,21 @@ class IMDB(SequenceDataset):
         dataset.set_format(type="torch", columns=["input_ids", "label"])
 
         # Create all splits
-        dataset_train, self.dataset_test = dataset["train"], dataset["test"]
-        if self.val_split == 0.0:
-            # Use test set as val set, as done in the LRA paper
-            self.dataset_train, self.dataset_val = dataset_train, None
-        else:
-            train_val = dataset_train.train_test_split(
-                test_size=self.val_split, seed=self.seed
-            )
-            self.dataset_train, self.dataset_val = (
-                train_val["train"],
-                train_val["test"],
-            )
+        dataset_train, dataset_test = dataset["train"], dataset["test"]
+        #if self.val_split == 0.5:
+        # Use test set as val set, as done in the LRA paper
+
+        self.dataset_train = dataset_train
+        self.dataset_test = torch.utils.data.Subset(dataset_test, list(range(0, int(len(dataset_test)/2))))
+        self.dataset_val = torch.utils.data.Subset(dataset_test, list(range(int(len(dataset_test)/2), len(dataset_test))))
+    # else:
+        #     train_val = dataset_train.train_test_split(
+        #         test_size=self.val_split, seed=self.seed
+        #     )
+        #     self.dataset_train, self.dataset_val = (
+        #         train_val["train"],
+        #         train_val["test"],
+        #     )
 
     def _collate_fn(self, batch):
         xs, ys = zip(*[(data["input_ids"], data["label"]) for data in batch])
@@ -434,6 +437,7 @@ class PathFinder(ImageResolutionSequenceDataset):
     @property
     def init_defaults(self):
         return {
+            "l_max": 1024,
             "classification": True,
             "resolution": 32,
             "sequential": True,
@@ -724,9 +728,6 @@ if __name__ == "__main__":
     #aan.test_dataloader()
 
 
-
-
-    Path
 
     # import tqdm
     #

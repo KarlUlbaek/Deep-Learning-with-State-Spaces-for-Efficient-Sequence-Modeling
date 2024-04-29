@@ -97,6 +97,8 @@ def eval(model, eval_loader, info_dict, test_mode):
    return info_dict
 
 
+
+
 if __name__ == "__main__":
    import wandb
    from copy import deepcopy
@@ -104,6 +106,7 @@ if __name__ == "__main__":
    from mamba_fork.mamba_ssm.models.mixer_seq_simple import MambaModel
    from s4_modules import S4ClassicModel, s4ClassicModule
    from functools import partial
+   from s4_playground.misc import get_data_name, get_model_name
 
    if torch.cuda.get_device_name(0) == "NVIDIA GeForce GTX 1080 Ti":
       fast = False
@@ -119,7 +122,7 @@ if __name__ == "__main__":
                      fused_add_norm=fast, rms_norm=fast)
 
    s4Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast, s4_kwargs={"dplr": "diag", "init": "legs"})
+                     fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "dplr", "init": "legs"})
 
    s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
@@ -128,10 +131,10 @@ if __name__ == "__main__":
    d_model = 170
    layernorm = True # = True means layernorm and not RMS
    prenorm = False # =
-   s4Classic  = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
+   s4Classic  = partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
                         d_state=d_state, dropout=dropout, s4_kwargs={"mode": "dplr", "init": "legs"},
                         layernorm=layernorm, prenorm=prenorm)
-   s4dClassic = partial(S4ClassicModel, s4_or_s6=s4ClassicModule, n_layer=n_layer, d_model=d_model,
+   s4dClassic = partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
                         d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"},
                         layernorm=layernorm, prenorm=prenorm)
 
@@ -160,7 +163,7 @@ if __name__ == "__main__":
    # #data.setup("../data")
    # Pathfindertoken = deepcopy(data)
 
-   Models = [s4dClassic, s4dMamba, s4Classic, s4dClassic, s6Mamba]
+   Models = [s4dClassic, s4Classic, s4Mamba, s4dMamba, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
    datasets = [CIFAR10cont, CIFAR10token]
@@ -218,14 +221,16 @@ if __name__ == "__main__":
                d_name = (d_name+"token") if vocab_size is not None else (d_name+"cons")
                print(f"\n Running on {d_name}")
                model = Model(d_input=d_input, d_output=d_output, pos_emb=pos_emb, vocab_size=vocab_size, classification=classification)
-               m_name, n_params = print_model_stats(model)
+               n_params = print_model_stats(model)
+               m_name = get_model_name(model, "")
+               print(m_name)
                model = model.to(d)
                optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=n_epochs, weight_decay=weight_decay)
                #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
 
                if test_throughput:
                   data_throughput(train_loader, d_name)
-                  model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
+                  model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L, e=n_epochs, len_data_loader=len(train_loader))
 
                if test_mode or not wandb_logging:
                   wandb_run = None
