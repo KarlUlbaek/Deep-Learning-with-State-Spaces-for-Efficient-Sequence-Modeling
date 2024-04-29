@@ -32,6 +32,9 @@ def trainer(model, train_loader, val_loader, test_loader, test_mode, criterion, 
 
          else: # causual/next word prediction
             x = xy_[0].to(d)
+            if model.reversed_pre:
+               assert not bool(model.bi_s6) and not bool(model.bi_module)
+               x = x.flip(1)
             pred = model(x)
             loss = criterion(pred[:,:-1,:].transpose(-1,-2), x[:,1:])
 
@@ -110,6 +113,12 @@ def eval(model, eval_loader, info_dict, test_mode, criterion, classification=Tru
    ys = []
    for idx, xy_ in enumerate(eval_loader):
       x = xy_[0].to(d)
+
+      # reversed causal pretraining
+      if model.reversed_pre:
+         assert not bool(model.bi_s6) and not bool(model.bi_module)
+         x = x.flip(1)
+
       y = xy_[1].to(d) if classification or bi else x
       pred = model(x)
       all_preds.append(pred)

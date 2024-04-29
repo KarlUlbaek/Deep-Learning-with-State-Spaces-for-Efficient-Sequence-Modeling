@@ -520,7 +520,8 @@ class S4ClassicModel(nn.Module):
       layernorm=True,
       s4_kwargs = {"mode": "dplr", "init": "legs"},
       pos_emb = {},
-      bi_module = {}
+      bi_module = {},
+      reversed_pre=False
    ):
       super().__init__()
       self.d_model, self.d_state, self.n_layer, self.dropout, self.s4 = d_model, d_state, n_layer, dropout, s4_kwargs["mode"]
@@ -529,6 +530,7 @@ class S4ClassicModel(nn.Module):
       self.s4_kwargs = s4_kwargs
       self.pos_emb = pos_emb
       self.bi_module = bi_module
+      self.reversed_pre= reversed_pre
 
       if vocab_size is not None:
          self.encoder = nn.Embedding(vocab_size, d_model)
