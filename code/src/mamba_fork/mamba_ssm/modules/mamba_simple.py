@@ -437,12 +437,15 @@ class S6MambaModulePosEmb(nn.Module):
             if self.layer_idx == 0:
                 print("using pos {} embeddings".format(pos_emb["loc"]))
 
-            assert "b_c_dt_x" in pos_emb != 0, "pos_emb kw_args dict must contrain b_c_dt_x entry!"
-            self.b_c_dt_x_posemb = pos_emb["b_c_dt_x"].lower()
-            if self.layer_idx == 0:
-                for letter in ["b", "c", "dt", "x"]:
-                    if letter in self.b_c_dt_x_posemb:
-                        print("using pos embeddings at {}".format(letter))
+            if "b_c_dt_x" not in pos_emb:
+                print("pos_emb kw_args dict must contrain b_c_dt_x entry!")
+                print("not using posembs only non-fused model")
+            else:
+                self.b_c_dt_x_posemb = pos_emb["b_c_dt_x"].lower()
+                if self.layer_idx == 0:
+                    for letter in ["b", "c", "dt", "x"]:
+                        if letter in self.b_c_dt_x_posemb:
+                            print("using pos embeddings at {}".format(letter))
 
             self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_inner, **pos_emb, BDL_shape=True)
         if bool(self.bi):
