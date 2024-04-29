@@ -229,7 +229,6 @@ class MambaModel(nn.Module):
             self.decoder = nn.Linear(self.d_model, d_output)
         else:
             self.decoder = nn.Linear(self.d_model, vocab_size)
-        self.decoder.inc_lr = False
             # self.tie_weights()
 
         # def tie_weights(self):

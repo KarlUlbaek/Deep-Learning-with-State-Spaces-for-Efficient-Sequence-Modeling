@@ -74,8 +74,14 @@ class IMDB(SequenceDataset):
         # Use test set as val set, as done in the LRA paper
 
         self.dataset_train = dataset_train
-        self.dataset_test = torch.utils.data.Subset(dataset_test, list(range(0, int(len(dataset_test)/2))))
-        self.dataset_val = torch.utils.data.Subset(dataset_test, list(range(int(len(dataset_test)/2), len(dataset_test))))
+        import random
+        l = list(range(len(dataset_test)))
+        random.seed(1)
+        random.shuffle(l)
+        l1 = l[:int(len(dataset_test)/2)]
+        l2 = l[int(len(dataset_test)/2):]
+        self.dataset_test = torch.utils.data.Subset(dataset_test, l1)
+        self.dataset_val = torch.utils.data.Subset(dataset_test, l2)
     # else:
         #     train_val = dataset_train.train_test_split(
         #         test_size=self.val_split, seed=self.seed
