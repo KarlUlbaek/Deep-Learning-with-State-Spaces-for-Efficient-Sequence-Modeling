@@ -6,7 +6,7 @@ import tqdm
 from copy import deepcopy
 
 def trainer(model, train_loader, val_loader, test_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_run,
-            improvement_demand=0.01, classification=True, bi=False, d="cuda"):
+            improvement_demand=-1., classification=True, bi=False, d="cuda"):
 
    info_dict, train_acc = {}, 0
    for epoch_idx in range(n_epochs):
