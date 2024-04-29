@@ -729,9 +729,6 @@ if __name__ == "__main__":
 
 
 
-
-    Path
-
     # import tqdm
     #
     # c = CIFAR10("cifar")

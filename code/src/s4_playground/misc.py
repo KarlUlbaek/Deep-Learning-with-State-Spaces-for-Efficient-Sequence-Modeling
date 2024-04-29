@@ -2,6 +2,139 @@ import torch
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR as CosSched
 import time
+import tqdm
+from copy import deepcopy
+
+def trainer(model, train_loader, val_loader, test_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_run,
+            improvement_demand=0.01, classification=True, bi=False, d="cuda"):
+
+   info_dict, train_acc = {}, 0
+   for epoch_idx in range(n_epochs):
+      info_dict_last_iter = deepcopy(info_dict) # make copy, it is only usued for logging the first iter
+      p_bar = tqdm.tqdm(enumerate(train_loader),
+                        total=len(train_loader),
+                        desc="E: {}/{}".format(epoch_idx+1, n_epochs),
+                        unit="b")
+      p_bar.set_postfix(info_dict)
+      correct, tot, tot_loss = .0, .0, .0
+      model.train()
+      random_guess = 1 / model.d_output
+
+      for batch_idx, xy_ in p_bar:
+         if classification or bi:
+            x, y = xy_[0].to(d), xy_[1].to(d)
+            pred = model(x)
+
+            if not classification and bi: # masked language modeling
+               loss = criterion(pred.transpose(-1,-2), y)
+            else: # regular classification
+               loss = criterion(pred, y)
+
+         else: # causual/next word prediction
+            x = xy_[0].to(d)
+            pred = model(x)
+            loss = criterion(pred[:,:-1,:].transpose(-1,-2), x[:,1:])
+
+         loss.backward()
+         optimizer.step()
+         optimizer.zero_grad()
+
+         tot_loss += loss.item()
+         info_dict["loss"] = tot_loss / (batch_idx + 1)
+
+         if classification:
+            correct += torch.sum((torch.argmax(pred, dim=-1) == y).to(float))
+            tot += y.shape[0]
+            train_acc = (correct / tot).item()
+            info_dict["train acc"] = train_acc
+         else:
+            info_dict["train per"] = torch.exp(torch.tensor(info_dict["loss"])).item()
+
+
+
+         p_bar.set_postfix(info_dict)
+
+         # break early due to test mode
+         if test_mode and batch_idx == 1:
+            #Test that the testset can run also
+            info_dict = eval(model, test_loader, info_dict, test_mode, criterion, classification, bi=bi, test_data=True)
+            break
+
+      info_dict = eval(model, val_loader, info_dict, test_mode, criterion, classification, bi=bi,d=d)
+      info_dict["lr"] = scheduler.get_last_lr()[0]
+      scheduler.step()
+
+      # break early due to poor initializing. i.e. if we havent leared anything for the first epoch
+      # we demand to be atleast 3% points better than random else we reinitialize
+      if epoch_idx==0 and (train_acc - random_guess) < improvement_demand and not test_mode and classification:
+         print(f"model failed since train acc is {train_acc:.3f} and random is {random_guess:.3f} "
+               f"and tol is {improvement_demand:.2f}")
+         print("Reinitializing and rerunning!!!")
+
+         succes = False
+         return succes
+
+      if epoch_idx == 1 and test_mode:
+         succes = True
+         return succes
+
+      # init the logging and log 0epoch and 1st epoch
+      if epoch_idx == 1 and wandb_run is not None:
+         wandb_run = wandb_run()
+         wandb_run.log(info_dict_last_iter)
+         wandb_run.log(info_dict)
+
+      # log as usual for the rest of the epochs
+      if epoch_idx > 1 and wandb_run is not None:
+         wandb_run.log(info_dict)
+
+   #get test-test performance
+   info_dict = eval(model, test_loader, info_dict, test_mode, criterion, classification, bi=bi, test_data=True,d=d)
+   test_perf = {key: val for key, val in info_dict.items() if key.startswith("val")}
+   wandb_run.log(test_perf)
+
+   if wandb_run is not None: wandb_run.finish()
+   succes = True
+   return succes
+
+      #if batch_idx % 20 == 0:
+@torch.no_grad()
+def eval(model, eval_loader, info_dict, test_mode, criterion, classification=True, bi=False, test_data=False, d="cuda"):
+   if test_data:
+      split = "val"
+   else:
+      split= "test"
+
+   model.eval()
+   all_preds = []
+   ys = []
+   for idx, xy_ in enumerate(eval_loader):
+      x = xy_[0].to(d)
+      y = xy_[1].to(d) if classification or bi else x
+      pred = model(x)
+      all_preds.append(pred)
+      ys.append(y)
+
+      if test_mode and idx == 1: break
+
+   all_preds = torch.cat(all_preds)
+   ys = torch.cat(ys)
+   if classification:
+      test_acc = (torch.argmax(all_preds, dim=-1) == ys).float().mean()
+      info_dict[f"{split} acc"] = test_acc.cpu().item()
+
+   elif bi: #bi pretraining
+      per = torch.exp(criterion(all_preds.transpose(-1,-2), ys))
+      info_dict[f"{split} per"] = per.cpu().item()
+
+   else: # causal pretraining
+      per = torch.exp(criterion(all_preds[:,:-1,:].transpose(-1,-2), ys[:,1:]))
+      info_dict[f"{split} per"] = per.cpu().item()
+
+   #p_bar.set_postfix(inf_dict)
+   return info_dict
+
+
 def setup_optimizer(model, opt=AdamW, Sched=CosSched, lr=1e-3, lr_scale = 0.1, weight_decay=0.01, epochs=100):
 
    # All parameters in the model
@@ -70,11 +203,27 @@ def print_model_stats(model):
    #print("####################################################################################")
    return trainable_params
 
+
+def set_model_dropout(model, new_dropout):
+   for param in model.parameters():
+      if isinstance(param, torch.nn.Dropout1d):
+         param.p = new_dropout
+
+   model.dropout = new_dropout
+   return model
 def get_model_name(model, model_name_add, dataset=None):
    m_name = model.__class__.__name__ + "_" + model.s4
    if dataset is not None:
       m_name += "_" + str(dataset.max_length)
-   m_name += "_" + model_name_add + str(list(model.pos_emb.values())) + model.s4_kwargs.get("bi", "")
+
+   if bool(model_name_add):
+      m_name += "_" + model_name_add
+
+   if bool(model.pos_emb):
+      m_name += "_" + str(list(model.pos_emb.values()))
+
+   m_name += model.s4_kwargs.get("bi", "")
+
    if hasattr(model, "bi_s6"):
       if model.bi_s6.get("bi", 0):
          m_name += "_bi"
