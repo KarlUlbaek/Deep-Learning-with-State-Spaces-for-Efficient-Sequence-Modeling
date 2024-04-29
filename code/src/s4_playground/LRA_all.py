@@ -24,24 +24,6 @@ else:
    fast = True
 
 
-n_layer = 6
-d_model = 116
-d_state = 16
-dropout = 0.1
-s6Mamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                  fused_add_norm=fast, rms_norm=fast, bi_s6=False)
-
-s4dMamba = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                   fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
-
-d_state = 64
-d_model = 170
-layernorm = True # = True means layernorm and not RMS
-prenorm = False # =
-s4dClassic = partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
-                     d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"},
-                     layernorm=layernorm, prenorm=prenorm)
-
 
 data = CIFAR10("cifar")
 data.setup("../data/cifar10")
@@ -69,22 +51,33 @@ Pathfindertoken = deepcopy(data)
 #pos_emb = {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"}
 d_model = 116
 d_state = 16
-m1 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                      fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
-                      #bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False})
+n_layer = 6
+dropout = 0.1
+m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"}, pos_emb=pos_emb)
+                for pos_emb in [
+                  {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
+                  {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False},
+                  {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": True},
+                  {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": False},
+                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": True},
+                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False},
+                  {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": True},
+                  {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False},
+
+         ]]
 
 
 d_state = 64
 d_model = 170
-m2 =    partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
-                     d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"},
-                     layernorm=layernorm, prenorm=prenorm)
+# m1 =    partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
+#                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"})
 
-models = [m2]#, m2, m3, m4, m5, m6]
+#models = [m2]#, m2, m3, m4, m5, m6]
+models = m1
+datasets = [IMDBtoken]
 
-datasets = [CIFAR10cont, Pathfindercont, Pathfindertoken, IMDBtoken, CIFAR10token]#, IMDBtoken]#, CIFAR10cont] AAN_datase
-
-n_epochs = 2
+n_epochs = 15
 b = 64
 num_workers = 0
 d = "cuda"
