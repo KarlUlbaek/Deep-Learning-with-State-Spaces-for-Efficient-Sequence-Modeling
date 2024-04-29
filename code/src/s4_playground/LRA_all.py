@@ -67,7 +67,6 @@ m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, 
 
          ]]
 
-
 d_state = 64
 d_model = 170
 # m1 =    partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,

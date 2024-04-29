@@ -159,7 +159,8 @@ class MambaModel(nn.Module):
         s4_kwargs = {},  # {mode:"dplr", hippo_init ="legs"}
         pos_emb = {},
         bi_s6={}, # {"bi":True}
-        bi_module = {}
+        bi_module = {},
+        reversed_pre = False
 
     ) -> None:
         #factory_kwargs = {"device": device, "dtype": dtype}
@@ -175,6 +176,7 @@ class MambaModel(nn.Module):
         self.bi_s6 = bi_s6
         self.bi_module = bi_module
         self.pos_emb = pos_emb
+        self.reversed_pre = reversed_pre
 
         if vocab_size:
             self.encoder = nn.Embedding(vocab_size, self.d_model)
