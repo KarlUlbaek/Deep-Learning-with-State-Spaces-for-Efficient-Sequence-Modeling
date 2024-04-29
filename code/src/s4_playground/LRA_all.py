@@ -117,7 +117,7 @@ for test_mode in test_modes:
          m_name = get_model_name(model, model_name_add)
          d_name = get_data_name(dataset, data_name_add)
 
-         lr_L = lr * (2048 / L)
+         lr_L = lr * (1024 / L)
          optimizer, scheduler = setup_optimizer(model, lr=lr_L, epochs=n_epochs, weight_decay=weight_decay)
 
          print("####################################################################################")
