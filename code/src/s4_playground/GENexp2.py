@@ -136,9 +136,10 @@ def set_model_dropout(model, new_dropout):
    return model
 
 
-def get_model_name(model, model_name_add):
+def get_model_name(model, model_name_add, dataset=None):
    m_name = model.__class__.__name__ + "_" + model.s4
-   m_name += "_" + str(dataset.max_length)
+   if dataset is not None:
+      m_name += "_" + str(dataset.max_length)
    m_name += "_" + model_name_add + str(list(model.pos_emb.values())) + model.s4_kwargs.get("bi", "")
    if hasattr(model, "bi_s6"):
       if model.bi_s6.get("bi", 0):
@@ -366,7 +367,7 @@ if __name__ == "__main__":
                                    config={"model":m_name, "data":d_name, "lr":lr, "b": b_, "weight_decay":weight_decay_,
                                            "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
                                            "d_model":model.d_model, "n_params": n_params})
-            print("sum params", sum([param.sum() for param in model.parameters() if param.requires_grad]))
+            #print("sum params", sum([param.sum() for param in model.parameters() if param.requires_grad]))
             _ = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
                              criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs_,
                              wandb_run=wandb_run, classification=dataset.classification, bi=bool(model.bi_module))

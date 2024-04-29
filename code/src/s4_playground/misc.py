@@ -70,9 +70,49 @@ def print_model_stats(model):
    #print("####################################################################################")
    return trainable_params
 
+def get_model_name(model, model_name_add, dataset=None):
+   m_name = model.__class__.__name__ + "_" + model.s4
+   if dataset is not None:
+      m_name += "_" + str(dataset.max_length)
+   m_name += "_" + model_name_add + str(list(model.pos_emb.values())) + model.s4_kwargs.get("bi", "")
+   if hasattr(model, "bi_s6"):
+      if model.bi_s6.get("bi", 0):
+         m_name += "_bi"
+
+   if hasattr(model, "bi_module"):
+      if model.bi_module:
+         m_name += "_BIMODULE"
+
+      if model.bi_module.get("placebo", 0):
+         m_name += "_placebo"
+
+   return m_name
+
+
+def get_data_dim(train_loader, dataset):
+   xy_ = next(iter(train_loader))
+   x = xy_[0]
+   L = x.shape[1]
+   if x.dtype in [torch.int64, torch.int32, torch.int16]:
+      vocab_size = dataset.n_tokens
+      d_input = 1
+   else:
+      vocab_size = None
+      d_input = dataset.d_input
+
+   d_output = dataset.d_output
+   return d_input, d_output, vocab_size, L
+
+def get_data_name(dataset, data_name_add):
+   d_name = dataset.__class__.__name__
+   d_name = d_name + data_name_add
+   if not dataset.classification:
+      d_name += "_pretrain"
+   return d_name
+
 # assumes tokesn atm
 def model_throughput(model, vocab_size, d_input,
-                     len_data_loader, e, b, L=1000, reps=10):
+                     len_data_loader, e, b, L, reps=10):
    opt = AdamW(model.parameters(), lr=1e-9)
    if vocab_size is not None:
       batch = (torch.rand((b, L))*(vocab_size-1)).to(torch.long).abs()

@@ -301,13 +301,19 @@ class SequenceDataset(DefaultCollateMixin):
         return self._dataloader(dataset, **kwargs)
 
     def val_dataloader(self, **kwargs):
-        return self._eval_dataloader(self.dataset_val, **kwargs)
+        dl = self._eval_dataloader(self.dataset_val, **kwargs)
+        if isinstance(dl, dict):
+            dl = dl[None]
+        return dl
 
     def test_dataloader(self, **kwargs):
-        return self._eval_dataloader(self.dataset_test, **kwargs)
+        dl = self._eval_dataloader(self.dataset_test, **kwargs)
+        if isinstance(dl, dict):
+            dl = dl[None]
+        return dl
 
     def _eval_dataloader(self, dataset, **kwargs):
-        if dataset is None: return
+        #if dataset is None: return
         # Note that shuffle=False by default
         return self._dataloader(dataset, **kwargs)
 

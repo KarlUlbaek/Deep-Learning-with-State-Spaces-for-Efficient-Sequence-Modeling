@@ -237,7 +237,7 @@ class FFTConvLean(nn.Module):
       self.BDL_shape = transposed
 
       assert bi in ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", "", "placebo"]
-      if bi != "": print(f"using {bi} kernel")
+      #if bi != "": print(f"using {bi} kernel")
       self.bi = bi
       #self.use_feature_mix = use_feature_mix
 
@@ -520,12 +520,15 @@ class S4ClassicModel(nn.Module):
       layernorm=True,
       s4_kwargs = {"mode": "dplr", "init": "legs"},
       pos_emb = {},
+      bi_module = {}
    ):
       super().__init__()
       self.d_model, self.d_state, self.n_layer, self.dropout, self.s4 = d_model, d_state, n_layer, dropout, s4_kwargs["mode"]
       self.d_input, self.d_output, self.vocab_size = d_input, d_output, vocab_size
       self.prenorm = prenorm
       self.s4_kwargs = s4_kwargs
+      self.pos_emb = pos_emb
+      self.bi_module = bi_module
 
       if vocab_size is not None:
          self.encoder = nn.Embedding(vocab_size, d_model)
