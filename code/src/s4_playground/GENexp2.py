@@ -220,7 +220,7 @@ if __name__ == "__main__":
    s6Mamba1 = partial(MambaModel, n_layer=n_layer, d_model=int(d_model*0.9), d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast, bi_s6={})
    s6Mamba2 = partial(MambaModel, n_layer=n_layer, d_model=int(d_model*0.9), d_state=d_state, dropout=dropout,
-                     fused_add_norm=fast, rms_norm=fast, bi_s6={})
+                     fused_add_norm=fast, rms_norm=fast, bi_s6={}, reversed_pre=True)
 
    s6Mamba_bi = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
                      fused_add_norm=fast, rms_norm=fast,
@@ -232,7 +232,7 @@ if __name__ == "__main__":
    n_epochs = 5
    b = 32
 
-   lr_base = 1e-4
+   lr_base = 1e-3
    num_workers = 4
    d = "cuda"
    lr_scale = 0.1 # 0.1
@@ -241,13 +241,13 @@ if __name__ == "__main__":
    # default params
    df = {"lr_base": lr_base, "weight_decay": weight_decay, "b":b, "n_epochs": n_epochs, "dropout":dropout}
    #pretraing params
-   pt = {"lr_base": lr_base*10*4, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
+   pt = {"lr_base": lr_base*8, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs,
          "dropout":0.0, "max_length_mult":1}
 
    # "both, finetune, pretrain"
-   Models = [s6Mamba1, s6Mamba_bi]
-   sizes = [1024 * 4]*2
-   training_plans = ["pretrain", "finetune"]
+   Models = [s6Mamba1, s6Mamba2, s6Mamba_bi]
+   sizes = [1024 * 8]*3
+   training_plans = ["pretrain", "pretrain", "finetune"]
 
    pretrain_name = "pretrain_big" #"pretrain_big"
    finetune_name = "finetune_small" #"finetune_small"
@@ -293,13 +293,16 @@ if __name__ == "__main__":
             assert training_plans[-2]=="pretrain" and training_plans[-1]=="finetune"
             assert bool(model.bi_module)
             model = fuse_model(stored_models[0], deepcopy(stored_models[0]), model)
-            m_name += "F1"
+            m_name += "_F1"
 
          if len(training_plans) == 3 and idx == 2:
             assert training_plans[-3] == "pretrain", training_plans[-2] == "pretrain" and training_plans[-1] == "finetune"
             assert bool(model.bi_module)
             model = fuse_model(stored_models[0], stored_models[1], model)
-            m_name += "F2"
+            if stored_models[1].reversed_pre:
+               m_name += "_F2R"
+            else:
+               m_name += "_F2"
 
          run = 0
          while run < 2: # run a maximum of 2 runs. pretraining and finintuning or either or depeding on "training_plan"
@@ -316,7 +319,7 @@ if __name__ == "__main__":
                model.classification = True
                model.d_output = d_output
                model.decoder = torch.nn.Linear(model.d_model, d_output) # change head of model to output one of the 5 classes
-
+               #model.decoder.inc_lr =True
                dataset.setup(finetune_name, classification=True, finetune_len=finetune_len)
 
             elif training_plan == "pretrain": #only pretraining!
@@ -366,7 +369,7 @@ if __name__ == "__main__":
                                    config={"model":m_name, "data":d_name, "lr":lr, "b": b_, "weight_decay":weight_decay_,
                                            "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
                                            "d_model":model.d_model, "n_params": n_params})
-            print("sum params", sum([param.sum() for param in model.parameters() if param.requires_grad]))
+
             _ = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
                              criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs_,
                              wandb_run=wandb_run, classification=dataset.classification, bi=bool(model.bi_module))

@@ -262,6 +262,7 @@ if __name__ == "__main__":
                   model.classification = True
                   model.d_output = d_output
                   model.decoder = torch.nn.Linear(model.d_model, d_output) # change head of model to output one of the 5 classes
+                  model.decoder.inc_lr = True
 
                   dataset.setup(finetune_name, classification=True, finetune_len=finetune_len)
 
