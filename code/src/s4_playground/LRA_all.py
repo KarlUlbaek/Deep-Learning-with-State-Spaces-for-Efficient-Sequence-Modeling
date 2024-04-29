@@ -90,7 +90,7 @@ criterion = CrossEntropyLoss()
 test_throughput = True
 run_test_run = True
 wandb_logging = True
-wandb_name = "" #""
+wandb_name = "pos2" #""
 data_name_add = ""
 model_name_add = ""
 
@@ -108,7 +108,7 @@ for test_mode in test_modes:
          d_input, d_output, vocab_size, L = get_data_dim(train_loader, dataset)
          model = model(d_input=d_input, d_output=d_output, vocab_size=vocab_size, classification=True).to(d)
          m_name = get_model_name(model, model_name_add)
-         d_name = get_data_name(dataset, data_name_add)
+         d_name = get_data_name(dataset, data_name_add, cons_or_token=vocab_size)
 
          lr_L = lr * (1024 / L)
          optimizer, scheduler = setup_optimizer(model, lr=lr_L, epochs=n_epochs, weight_decay=weight_decay)
@@ -118,7 +118,7 @@ for test_mode in test_modes:
          n_params = print_model_stats(model)
          if test_throughput:
             model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, e=n_epochs,
-            len_data_loader=len(train_loader), b=b, L=L)
+                             len_data_loader=len(train_loader), b=b, L=L)
          print("DATA:", d_name)
          if test_throughput:
             data_throughput(train_loader)

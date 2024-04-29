@@ -252,8 +252,15 @@ def get_data_dim(train_loader, dataset):
    d_output = dataset.d_output
    return d_input, d_output, vocab_size, L
 
-def get_data_name(dataset, data_name_add):
+def get_data_name(dataset, data_name_add, cons_or_token="NaN"):
    d_name = dataset.__class__.__name__
+
+   if cons_or_token != "NaN":
+      if cons_or_token is None:
+         d_name += "cons" # short for continuous but misspelled woops. cant change because of wandb project names
+      else:
+         d_name += "token"
+
    d_name = d_name + data_name_add
    if not dataset.classification:
       d_name += "_pretrain"
