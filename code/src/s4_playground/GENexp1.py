@@ -191,7 +191,7 @@ if __name__ == "__main__":
    n_epochs = 5
    b = 32
 
-   lr_base = 1e-4
+   lr_base = 1e-3
    num_workers = 4
    d = "cuda"
    lr_scale = 0.1 # 0.1
@@ -200,13 +200,13 @@ if __name__ == "__main__":
    # default params
    df = {"lr_base": lr_base, "weight_decay": weight_decay, "b":b, "n_epochs": n_epochs, "dropout":dropout}
    #pretraing params
-   pt = {"lr_base": lr_base*10*4, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
+   pt = {"lr_base": lr_base*8, "weight_decay": 0.0, "b": b, "n_epochs": n_epochs*2,
          "dropout":0.0, "max_length_mult":1}
 
    # "both, finetune, pretrain"
-   Models = [s6Mamba_bi, s6Mamba]
-   sizes = [1024 * 8]
-   train_runs = ["both"]
+   Models = [s6Mamba]
+   sizes = [1024 * 16]*2
+   train_runs = ["both", "finetune"]
 
    pretrain_name = "pretrain_big" #"pretrain_big"
    finetune_name = "finetune_small" #"finetune_small"
@@ -229,7 +229,7 @@ if __name__ == "__main__":
    wandb_logging = True
    wandb_name = "" #""
    data_name_add = "_v4"
-   model_name_add = "LowLr"
+   model_name_add = ""
 
    test_modes = [True, False] if run_test_run else [False]
    print("datasets:", [dataset[1].__class__.__name__+"_"+str(dataset[1].max_length)+"_"+dataset[0] for dataset in datasets])
@@ -262,6 +262,10 @@ if __name__ == "__main__":
                   model.classification = True
                   model.d_output = d_output
                   model.decoder = torch.nn.Linear(model.d_model, d_output) # change head of model to output one of the 5 classes
+                  #decoder_params = [param for param in model.decoder.parameters()]
+                  #for param in decoder_params:
+                  #   param.inc_lr =True
+                  #print("!!!!!!!!!!!!!!!",model.decoder.inc_lr)
 
                   dataset.setup(finetune_name, classification=True, finetune_len=finetune_len)
 

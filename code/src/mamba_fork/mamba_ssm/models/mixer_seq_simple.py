@@ -160,7 +160,7 @@ class MambaModel(nn.Module):
         pos_emb = {},
         bi_s6={}, # {"bi":True}
         bi_module = {},
-        reversed_pre = False
+        reversed_pre=False
 
     ) -> None:
         #factory_kwargs = {"device": device, "dtype": dtype}

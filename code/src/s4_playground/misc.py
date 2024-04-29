@@ -6,7 +6,7 @@ import tqdm
 from copy import deepcopy
 
 def trainer(model, train_loader, val_loader, test_loader, test_mode, criterion, optimizer, scheduler, n_epochs, wandb_run,
-            improvement_demand=0.01, classification=True, bi=False, d="cuda"):
+            improvement_demand=-1., classification=True, bi=False, d="cuda"):
 
    info_dict, train_acc = {}, 0
    for epoch_idx in range(n_epochs):
@@ -148,14 +148,18 @@ def setup_optimizer(model, opt=AdamW, Sched=CosSched, lr=1e-3, lr_scale = 0.1, w
 
    # All parameters in the model
    all_parameters = list(model.parameters())
-
+   #print("!!!!!!!!!!!!!!!1111111111",model.decoder.inc_lr)
+   #print([param.name for param in model.decoder.parameters()])
    # General parameters don't contain the special _optim key
-   params = [p for p in all_parameters if not hasattr(p, "_optim")]
+   params = [p for p in all_parameters if not hasattr(p, "_optim") and not hasattr(p, "inc_lr")]
    params_ABC = [p for p in all_parameters if hasattr(p, "_optim")]
+   params_decoder = [p for p in all_parameters if hasattr(p, "inc_lr")]
+   #print(params_decoder)
 
    optimizer = opt([
       {"params": params},
-      {"params": params_ABC, "lr": lr * lr_scale, "weight_decay": 0.0}],
+      {"params": params_ABC, "lr": lr * lr_scale, "weight_decay": 0.0},
+      {"params": params_decoder, "lr": max(lr, 1e-3)}],
       lr=lr, weight_decay=weight_decay)
 
    scheduler = Sched(optimizer, epochs, eta_min=lr*0.1)

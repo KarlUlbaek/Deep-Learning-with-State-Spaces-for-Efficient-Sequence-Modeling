@@ -89,7 +89,7 @@ criterion = CrossEntropyLoss()
 test_throughput = True
 run_test_run = True
 wandb_logging = True
-wandb_name = "pos2" #""
+wandb_name = "_pos2" #""
 data_name_add = ""
 model_name_add = ""
 
