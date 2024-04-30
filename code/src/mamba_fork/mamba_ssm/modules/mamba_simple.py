@@ -452,12 +452,12 @@ class S6MambaModulePosEmb(nn.Module):
         if bool(self.bi):
             if self.layer_idx == 0: print("using bidirectional s6")
             self.A2_log = deepcopy(self.A_log)
-            self.D2 = nn.Parameter(torch.zeros(self.d_inner, device=device), requires_grad=False)
+            self.D2 = nn.Parameter(torch.ones(self.d_inner, device=device))
 
             self.B_projbi = nn.Linear(self.d_inner, self.d_state, bias=False, **factory_kwargs)
             self.C_projbi = nn.Linear(self.d_inner, self.d_state, bias=False, **factory_kwargs)
             self.dt_proj0bi = nn.Linear(self.d_inner, self.dt_rank, bias=False, **factory_kwargs)
-            self.dt_projbi = nn.Linear(self.dt_rank, self.d_inner, bias=True, **factory_kwargs)
+            self.dt_projbi = deepcopy(self.dt_proj)
 
 
     def forward(self, hidden_states, inference_params=None):

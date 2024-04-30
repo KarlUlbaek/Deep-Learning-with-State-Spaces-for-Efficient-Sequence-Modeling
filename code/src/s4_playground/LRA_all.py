@@ -75,7 +75,7 @@ m6 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=int(0.815*d_model),
                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": "sequential_bi"})]
 
 #models = [m2]#, m2, m3, m4, m5, m6]
-models = m1 + m2 + m3 + m4 + m5 + m6
+models = m2 + m1 + m3 + m4 + m5 + m6
 datasets = [CIFAR10cont]
 
 n_epochs = 25
