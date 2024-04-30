@@ -57,6 +57,7 @@ m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, 
                 fused_add_norm=fast, rms_norm=fast, pos_emb=pos_emb)
                 for pos_emb in [
                   {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False},
+                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False},
                   {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"},
                   {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "b_c_dt"},
              {}
@@ -133,7 +134,7 @@ for test_mode in test_modes:
          n_params = print_model_stats(model)
          if test_throughput:
             model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, e=n_epochs,
-                             len_data_loader=len(train_loader), b=b, L=L, reps=50)
+                             len_data_loader=len(train_loader), b=b, L=L, reps=100)
             print("MANYREPS! of model throughput")
          print("DATA:", d_name)
          if test_throughput:
