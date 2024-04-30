@@ -69,8 +69,8 @@ m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, 
 
 d_state = 64
 d_model = 170
-# m1 =    partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
-#                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"})
+m1 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
+                     d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"})]
 
 #models = [m2]#, m2, m3, m4, m5, m6]
 models = m1
