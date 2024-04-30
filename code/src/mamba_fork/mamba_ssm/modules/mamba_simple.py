@@ -454,6 +454,11 @@ class S6MambaModulePosEmb(nn.Module):
             self.A2_log = deepcopy(self.A_log)
             self.D2 = nn.Parameter(torch.zeros(self.d_inner, device=device), requires_grad=False)
 
+            self.B_projbi = nn.Linear(self.d_inner, self.d_state, bias=False, **factory_kwargs)
+            self.C_projbi = nn.Linear(self.d_inner, self.d_state, bias=False, **factory_kwargs)
+            self.dt_proj0bi = nn.Linear(self.d_inner, self.dt_rank, bias=False, **factory_kwargs)
+            self.dt_projbi = nn.Linear(self.dt_rank, self.d_inner, bias=True, **factory_kwargs)
+
 
     def forward(self, hidden_states, inference_params=None):
         """
@@ -540,12 +545,23 @@ class S6MambaModulePosEmb(nn.Module):
         )
         if self.bi:
             A2 = -torch.exp(self.A2_log.float())
+
+            x_ = rearrange(x.flip(-1), "b d l -> (b l) d")
+            B_bi = self.B_projbi(x_)  # (bl d)
+            C_bi = self.C_projbi(x_)  # (bl d)
+            dt_bi = self.dt_proj0bi(x_)  # (bl d)
+
+            dt_bi = self.dt_projbi.weight @ dt_bi.t()
+            dt_bi = rearrange(dt_bi, "d (b l) -> b d l", l=seqlen)
+            B_bi = rearrange(B_bi, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
+            C_bi = rearrange(C_bi, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
+
             y2 = selective_scan_fn(
                 x.flip(-1),
-                dt.flip(-1),
+                dt_bi,
                 A2,
-                B.flip(-1),
-                C.flip(-1),
+                B_bi,
+                C_bi,
                 self.D2.float(),
                 z=z.flip(-1),
                 delta_bias=self.dt_proj.bias.float(),

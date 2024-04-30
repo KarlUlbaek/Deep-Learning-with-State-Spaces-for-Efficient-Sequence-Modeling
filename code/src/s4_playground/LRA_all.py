@@ -33,50 +33,52 @@ data.grayscale = True
 data.setup("../data/cifar10")
 CIFAR10token = deepcopy(data)
 
-data = IMDB("imdb")
-data.l_max = 1024
-data.setup("../data/imdb")
-IMDBtoken = deepcopy(data)
+# data = IMDB("imdb")
+# data.l_max = 1024
+# data.setup("../data/imdb")
+# IMDBtoken = deepcopy(data)
 #
-data = PathFinder("pathfinder")
-data.setup("../data")
-#data.setup("../data")
-Pathfindercont = deepcopy(data)
-data.tokenize = True
-data.setup("../data")
-#data.setup("../data")
-Pathfindertoken = deepcopy(data)
+# data = PathFinder("pathfinder")
+# data.setup("../data")
+# #data.setup("../data")
+# Pathfindercont = deepcopy(data)
+# data.tokenize = True
+# data.setup("../data")
+# #data.setup("../data")
+# Pathfindertoken = deepcopy(data)
 
 
 #pos_emb = {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"}
 d_model = 116
 d_state = 16
 n_layer = 6
-dropout = 0.1
-m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"}, pos_emb=pos_emb)
-                for pos_emb in [
-                  {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
-                  {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False},
-                  {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": True},
-                  {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": False},
-                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": True},
-                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False},
-                  {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": True},
-                  {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False},
+dropout = 0.15
+m1 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast)]
 
-         ]]
+m2 =   [partial(MambaModel, n_layer=n_layer, d_model=int(0.93*d_model), d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast, bi_s6={"bi":True})]
+
+
+m3 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})]
+
+m4 =   [partial(MambaModel, n_layer=n_layer, d_model=int(0.94*d_model), d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi": "sequential_bi"})]
 
 d_state = 64
 d_model = 170
-m1 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
+m5 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"})]
 
-#models = [m2]#, m2, m3, m4, m5, m6]
-models = m1
-datasets = [IMDBtoken]
+m6 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=int(0.815*d_model),
+                     d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": "sequential_bi"})]
 
-n_epochs = 15
+#models = [m2]#, m2, m3, m4, m5, m6]
+models = m1 + m2 + m3 + m4 + m5 + m6
+datasets = [CIFAR10cont]
+
+n_epochs = 25
 b = 64
 num_workers = 0
 d = "cuda"
@@ -89,7 +91,7 @@ criterion = CrossEntropyLoss()
 test_throughput = True
 run_test_run = True
 wandb_logging = True
-wandb_name = "_pos2" #""
+wandb_name = "_bi_v3" #""
 data_name_add = ""
 model_name_add = ""
 
