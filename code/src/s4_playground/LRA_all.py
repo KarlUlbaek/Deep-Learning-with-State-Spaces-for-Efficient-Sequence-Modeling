@@ -33,10 +33,10 @@ data.grayscale = True
 data.setup("../data/cifar10")
 CIFAR10token = deepcopy(data)
 
-# data = IMDB("imdb")
-# data.l_max = 1024
-# data.setup("../data/imdb")
-# IMDBtoken = deepcopy(data)
+data = IMDB("imdb")
+data.l_max = 1024
+data.setup("../data/imdb")
+IMDBtoken = deepcopy(data)
 #
 # data = PathFinder("pathfinder")
 # data.setup("../data")
@@ -52,47 +52,49 @@ CIFAR10token = deepcopy(data)
 d_model = 116
 d_state = 16
 n_layer = 6
-dropout = 0.15
+dropout = 0.1
 # m1 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
 #                 fused_add_norm=fast, rms_norm=fast)]
+s6_bi =   [partial(MambaModel, n_layer=n_layer, d_model=107, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast,bi_module = {"d_model_scale":1.0, "d_state_scale":1.0, "tie_linear_proj": True})
+                ]
+s6_bi_pla =   [partial(MambaModel, n_layer=n_layer, d_model=107, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast,bi_module = {"d_model_scale":1.0, "d_state_scale":1.0, "tie_linear_proj": True, "placebo":True})
+                ]
 
-m1 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast,
-                bi_module = {"d_model_scale":0.925, "d_state_scale":1.0, "tie_linear_proj": True})]
+s6 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast)
+                ]
 
-m2 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast,
-                bi_module = {"d_model_scale":0.925, "d_state_scale":1.0, "tie_linear_proj": True, "placebo":True})]
-
-
-# m3 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-#                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})]
-
-m3 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+diag_bi =   [partial(MambaModel, n_layer=n_layer, d_model=108, d_state=d_state, dropout=dropout,
                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                bi_module = {"d_model_scale":0.935, "d_state_scale":1.0, "tie_linear_proj": True})]
-
-m4 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                     bi_module ={"d_model_scale":1.0, "d_state_scale":1.0, "tie_linear_proj": True})
+                ]
+diag_pla =   [partial(MambaModel, n_layer=n_layer, d_model=108, d_state=d_state, dropout=dropout,
                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                bi_module = {"d_model_scale":0.935, "d_state_scale":1.0, "tie_linear_proj": True, "placebo":True})]
+                     bi_module ={"d_model_scale":1.0, "d_state_scale":1.0, "tie_linear_proj": True, "placebo":True})
+                ]
 
-# d_state = 64
-# d_model = 170
-# m5 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
-#                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"})]
-#
-# m6 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=int(0.815*d_model),
-#                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": "sequential_bi"})]
+diag =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
+                ]
+#imdb
+#s6 2
+#s6bi 4
+#s6bi_pla 2
 
-#models = [m2]#, m2, m3, m4, m5, m6]
-models = m1 + m2 + m3 + m4
-datasets = [CIFAR10cont]
+#diag 1
+#diagbi 2
+#s6bi_pla 1
 
-n_epochs = 25
+models = s6*3 + s6_bi + s6_bi_pla*3 + diag*4 + diag_bi*3 + diag_pla*4
+datasets = [IMDBtoken]
+
+n_epochs = 15
 b = 64
 num_workers = 0
 d = "cuda"
-lr = 3e-3
+lr = 1e-3
 lr_scale = 0.1 # 0.1
 weight_decay = 0.01 # 0.01
 
