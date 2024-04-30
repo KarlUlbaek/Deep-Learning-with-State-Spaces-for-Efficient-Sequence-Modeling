@@ -291,7 +291,7 @@ def model_throughput(model, vocab_size, d_input,
    batch = batch.to("cuda")
    #warm up
    model = model.eval()
-   for _ in range(3):
+   for _ in range(int(reps/2)):
       model(batch)
    torch.cuda.synchronize()
 
