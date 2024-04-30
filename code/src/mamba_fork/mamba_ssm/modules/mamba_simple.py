@@ -437,17 +437,18 @@ class S6MambaModulePosEmb(nn.Module):
             if self.layer_idx == 0:
                 print("using pos {} embeddings".format(pos_emb["loc"]))
 
-            if "b_c_dt_x" not in pos_emb:
+            if "b_c_dt_x" not in pos_emb or pos_emb.get("b_c_dt_x", 0)==0:
                 print("pos_emb kw_args dict must contrain b_c_dt_x entry!")
                 print("not using posembs only non-fused model")
+                self.use_pos_emb = False
             else:
                 self.b_c_dt_x_posemb = pos_emb["b_c_dt_x"].lower()
                 if self.layer_idx == 0:
                     for letter in ["b", "c", "dt", "x"]:
                         if letter in self.b_c_dt_x_posemb:
                             print("using pos embeddings at {}".format(letter))
+                self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_inner, **pos_emb, BDL_shape=True)
 
-            self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_inner, **pos_emb, BDL_shape=True)
         if bool(self.bi):
             if self.layer_idx == 0: print("using bidirectional s6")
             self.A2_log = deepcopy(self.A_log)
@@ -515,9 +516,10 @@ class S6MambaModulePosEmb(nn.Module):
                 x = x_poss
 
         else:
-            B = self.B_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
-            C = self.C_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
-            dt = self.dt_proj0(rearrange(x, "b d l -> (b l) d"))  # (bl d)
+            x_ = rearrange(x, "b d l -> (b l) d")
+            B = self.B_proj(x_)  # (bl d)
+            C = self.C_proj(x_)  # (bl d)
+            dt = self.dt_proj0(x_)  # (bl d)
 
         dt = self.dt_proj.weight @ dt.t()
         dt = rearrange(dt, "d (b l) -> b d l", l=seqlen)

@@ -52,31 +52,45 @@ Pathfindertoken = deepcopy(data)
 d_model = 116
 d_state = 16
 n_layer = 6
-dropout = 0.1
+dropout = 0.15
 m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"}, pos_emb=pos_emb)
+                fused_add_norm=fast, rms_norm=fast, pos_emb=pos_emb)
                 for pos_emb in [
-                  {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
-                  {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False},
-                  {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": True},
-                  {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": False},
-                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": True},
-                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False},
-                  {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": True},
-                  {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False},
-
-         ]]
+                  {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "b_c_dt"},
+                  {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt_x"},
+                  {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": True, "b_c_dt_x": "b_c"},
+                  {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "c_dt"},
+                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "b_dt"},
+                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "x"},
+                  {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": True, "b_c_dt_x": "b_c_x"},
+                  {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False, "b_c_dt_x": "dt_x"},
+                  {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "b_dt_x"},
+                  {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "c_x"},
+                  {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": True, "b_c_dt_x": "b_dt"}]]
 
 d_state = 64
 d_model = 170
+# m2 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+#                 s4_kwargs={"mode": "diag", "init": "legs"}, pos_emb=pos_emb)
+#                 for pos_emb in [
+#                   {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": True},
+#                   {"loc": "all", "theta": 10, "seq_norm": 1024, "learned_freq": False},
+#                   {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": True},
+#                   {"loc": "all", "theta": 10, "seq_norm": None, "learned_freq": False},
+#                   {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": True},
+#                   {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False},
+#                   {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": True},
+#                   {"loc": "all", "theta": 10_000, "seq_norm": None, "learned_freq": False},
+#
+#          ]]
 # m1 =    partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
 #                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"})
 
 #models = [m2]#, m2, m3, m4, m5, m6]
 models = m1
-datasets = [IMDBtoken]
+datasets = [CIFAR10cont]
 
-n_epochs = 15
+n_epochs = 25
 b = 64
 num_workers = 0
 d = "cuda"
