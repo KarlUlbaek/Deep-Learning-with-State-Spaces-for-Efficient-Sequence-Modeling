@@ -53,29 +53,39 @@ d_model = 116
 d_state = 16
 n_layer = 6
 dropout = 0.15
+# m1 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+#                 fused_add_norm=fast, rms_norm=fast)]
+
 m1 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast)]
+                fused_add_norm=fast, rms_norm=fast,
+                bi_module = {"d_model_scale":0.925, "d_state_scale":1.0, "tie_linear_proj": True})]
 
-m2 =   [partial(MambaModel, n_layer=n_layer, d_model=int(0.93*d_model), d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, bi_s6={"bi":True})]
+m2 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast,
+                bi_module = {"d_model_scale":0.925, "d_state_scale":1.0, "tie_linear_proj": True, "placebo":True})]
 
+
+# m3 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+#                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})]
 
 m3 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})]
+                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
+                bi_module = {"d_model_scale":0.935, "d_state_scale":1.0, "tie_linear_proj": True})]
 
-m4 =   [partial(MambaModel, n_layer=n_layer, d_model=int(0.94*d_model), d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi": "sequential_bi"})]
+m4 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
+                bi_module = {"d_model_scale":0.935, "d_state_scale":1.0, "tie_linear_proj": True, "placebo":True})]
 
-d_state = 64
-d_model = 170
-m5 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
-                     d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"})]
-
-m6 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=int(0.815*d_model),
-                     d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": "sequential_bi"})]
+# d_state = 64
+# d_model = 170
+# m5 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model,
+#                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs"})]
+#
+# m6 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=int(0.815*d_model),
+#                      d_state=d_state, dropout=dropout, s4_kwargs={"mode": "diag", "init": "legs", "bi": "sequential_bi"})]
 
 #models = [m2]#, m2, m3, m4, m5, m6]
-models = m2 + m1 + m3 + m4 + m5 + m6
+models = m1 + m2 + m3 + m4
 datasets = [CIFAR10cont]
 
 n_epochs = 25
