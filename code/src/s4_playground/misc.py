@@ -317,7 +317,7 @@ def model_throughput(model, vocab_size, d_input,
    t2 = (time.perf_counter() - t0) / reps
    mem2 = torch.cuda.max_memory_allocated()
 
-   print(f"far/back mem GB: {mem1/1e9:.1f}, {mem2/1e9:.1f}")
+   print(f"far/back mem GB: {mem1/1e9:.2f}, {mem2/1e9:.2f}")
    print(f"far/back speed b/s: {1/t1:.1f}, {1/t2:.1f}")
    est = int(((t2)*len_data_loader*e)/(60))
    print(f"estimated training time: {est}m")
