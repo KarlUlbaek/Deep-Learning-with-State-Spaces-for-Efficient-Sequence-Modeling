@@ -56,10 +56,7 @@ dropout = 0.1
 # m1 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
 #                 fused_add_norm=fast, rms_norm=fast)]
 s6_bi =   [partial(MambaModel, n_layer=n_layer, d_model=107, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast,bi_module = {"d_model_scale":1.0, "d_state_scale":1.0, "tie_linear_proj": True})
-                ]
-s6_bi_pla =   [partial(MambaModel, n_layer=n_layer, d_model=107, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast,bi_module = {"d_model_scale":1.0, "d_state_scale":1.0, "tie_linear_proj": True, "placebo":True})
+                fused_add_norm=fast, rms_norm=fast,bi_s6 = {"bi":True})
                 ]
 
 s6 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
@@ -67,12 +64,7 @@ s6 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropo
                 ]
 
 diag_bi =   [partial(MambaModel, n_layer=n_layer, d_model=108, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                     bi_module ={"d_model_scale":1.0, "d_state_scale":1.0, "tie_linear_proj": True})
-                ]
-diag_pla =   [partial(MambaModel, n_layer=n_layer, d_model=108, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                     bi_module ={"d_model_scale":1.0, "d_state_scale":1.0, "tie_linear_proj": True, "placebo":True})
+                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"})
                 ]
 
 diag =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
@@ -87,8 +79,8 @@ diag =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dro
 #diagbi 2
 #s6bi_pla 1
 
-models =diag_bi*3 + diag_pla*4 + diag*4
-datasets = [IMDBtoken]
+models = s6_bi + s6_bi + s6 + diag_bi + diag
+datasets = [CIFAR10cont]
 
 n_epochs = 15
 b = 64

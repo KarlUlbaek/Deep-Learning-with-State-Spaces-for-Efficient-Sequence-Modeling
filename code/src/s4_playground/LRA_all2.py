@@ -33,19 +33,19 @@ data.grayscale = True
 data.setup("../data/cifar10")
 CIFAR10token = deepcopy(data)
 
-data = IMDB("imdb")
-data.l_max = 1024
-data.setup("../data/imdb")
-IMDBtoken = deepcopy(data)
-#
-data = PathFinder("pathfinder")
-data.setup("../data")
+# data = IMDB("imdb")
+# data.l_max = 1024
+# data.setup("../data/imdb")
+# IMDBtoken = deepcopy(data)
+# #
+# data = PathFinder("pathfinder")
+# data.setup("../data")
+# #data.setup("../data")
+# Pathfindercont = deepcopy(data)
+# data.tokenize = True
+# data.setup("../data")
 #data.setup("../data")
-Pathfindercont = deepcopy(data)
-data.tokenize = True
-data.setup("../data")
-#data.setup("../data")
-Pathfindertoken = deepcopy(data)
+#Pathfindertoken = deepcopy(data)
 
 
 #pos_emb = {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"}
@@ -53,39 +53,32 @@ d_model = 116
 d_state = 16
 n_layer = 6
 dropout = 0.1
-m1 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, pos_emb=pos_emb)
-                for pos_emb in [
-                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False},
-                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False},
-                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"},
-                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "b_c_dt"},
-             {}
+s6_bi =   [partial(MambaModel, n_layer=n_layer, d_model=107, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast,bi_s6 = {"bi":True})
+                ]
 
-         ]]
+s6 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast)
+                ]
 
-m2 =    [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, pos_emb=pos_emb, s4_kwargs={"mode": "diag", "init": "legs"})
-                for pos_emb in [
-                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False, "b_c_dt_x": "b_c_dt"},
-                  {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": True, "b_c_dt_x": "b_c_dt"},
-             {}
+diag_bi =   [partial(MambaModel, n_layer=n_layer, d_model=108, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"})
+                ]
 
-         ]]
+diag =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
+                ]
+#imdb
+#s6 2
+#s6bi 4
+#s6bi_pla 2
 
+#diag 1
+#diagbi 2
+#s6bi_pla 1
 
-d_state = 64
-d_model = 170
-m3 =    [partial(S4ClassicModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                s4_kwargs={"mode": "diag", "init": "legs"}, pos_emb=pos_emb)
-                for pos_emb in [
-             {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": False},
-             {"loc": "all", "theta": 10_000, "seq_norm": 1024, "learned_freq": True},
-             {}
+models = s6_bi + s6_bi + s6 + diag_bi + diag
 
-         ]]
-#models = [m2]#, m2, m3, m4, m5, m6]
-models = m1+m2+m3
 datasets = [CIFAR10cont]
 print("SPEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEED")
 print("SPEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEED")
@@ -134,7 +127,7 @@ for test_mode in test_modes:
          n_params = print_model_stats(model)
          if test_throughput:
             model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, e=n_epochs,
-                             len_data_loader=len(train_loader), b=b, L=L, reps=100)
+                             len_data_loader=len(train_loader), b=b, L=L, reps=200)
             print("MANYREPS! of model throughput")
          print("DATA:", d_name)
          if test_throughput:
