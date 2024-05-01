@@ -87,7 +87,7 @@ diag =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dro
 #diagbi 2
 #s6bi_pla 1
 
-models = s6*3 + s6_bi + s6_bi_pla*3 + diag*4 + diag_bi*3 + diag_pla*4
+models =diag_bi*3 + diag_pla*4 + diag*4
 datasets = [IMDBtoken]
 
 n_epochs = 15
