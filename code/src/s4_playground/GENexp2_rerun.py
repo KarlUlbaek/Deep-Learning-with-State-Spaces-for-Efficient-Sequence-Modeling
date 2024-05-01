@@ -227,12 +227,14 @@ if __name__ == "__main__":
                      bi_module={"d_model_scale":0.9, "d_state_scale":1.0, "tie_linear_proj":True})
    #, s4dMamba]
 
+   s6Mamba_reg = partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                           fused_add_norm=fast, rms_norm=fast)
    #max_length = 1024*2
    n_data_points = 50_000
    n_epochs = 5
    b = 32
 
-   lr_base = 1e-4
+   lr_base = 1e-3
    num_workers = 4
    d = "cuda"
    lr_scale = 0.1 # 0.1
@@ -245,13 +247,13 @@ if __name__ == "__main__":
          "dropout":0.0, "max_length_mult":1}
 
    # "both, finetune, pretrain"
-   Models = [s6Mamba1, s6Mamba_bi]
-   sizes = [1024 * 4]*2
-   training_plans = ["pretrain", "finetune"]
+   Models = [s6Mamba_reg]#[s6Mamba1, s6Mamba_bi]
+   sizes = [1024]#[1024 * 4]*2
+   training_plans = ["finetune"]#["pretrain", "finetune"]
 
    pretrain_name = "pretrain_big" #"pretrain_big"
-   finetune_name = "finetune_small" #"finetune_small"
-   finetune_len = 1_000_000 #-1 disables i.e. takes all values
+   finetune_name = "finetune"#"finetune_small" #"finetune_small"
+   finetune_len = -1#1_000_000 #-1 disables i.e. takes all values
 
    species = ["hippo", "human", "pig", "sheep", "lemur"]
    species_dir = "../data/species"
