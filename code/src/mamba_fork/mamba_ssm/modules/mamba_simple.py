@@ -437,18 +437,27 @@ class S6MambaModulePosEmb(nn.Module):
             if self.layer_idx == 0:
                 print("using pos {} embeddings".format(pos_emb["loc"]))
 
-            assert "b_c_dt_x" in pos_emb != 0, "pos_emb kw_args dict must contrain a_b_dt entry!"
-            self.b_c_dt_x_posemb = pos_emb["b_c_dt_x"].lower()
-            if self.layer_idx == 0:
-                for letter in ["b", "c", "dt", "x"]:
-                    if letter in self.b_c_dt_x_posemb:
-                        print("using pos embeddings at {}".format(letter))
+            if "b_c_dt_x" not in pos_emb or pos_emb.get("b_c_dt_x", 0)==0:
+                print("pos_emb kw_args dict must contrain b_c_dt_x entry!")
+                print("not using posembs only non-fused model")
+                self.use_pos_emb = False
+            else:
+                self.b_c_dt_x_posemb = pos_emb["b_c_dt_x"].lower()
+                if self.layer_idx == 0:
+                    for letter in ["b", "c", "dt", "x"]:
+                        if letter in self.b_c_dt_x_posemb:
+                            print("using pos embeddings at {}".format(letter))
+                self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_inner, **pos_emb, BDL_shape=True)
 
-            self.pos_emb_layer = RotaryEmbeddingCustom(d_model=self.d_inner, **pos_emb, BDL_shape=True)
         if bool(self.bi):
             if self.layer_idx == 0: print("using bidirectional s6")
             self.A2_log = deepcopy(self.A_log)
-            self.D2 = nn.Parameter(torch.zeros(self.d_inner, device=device), requires_grad=False)
+            self.D2 = nn.Parameter(torch.ones(self.d_inner, device=device))
+
+            self.B_projbi = nn.Linear(self.d_inner, self.d_state, bias=False, **factory_kwargs)
+            self.C_projbi = nn.Linear(self.d_inner, self.d_state, bias=False, **factory_kwargs)
+            self.dt_proj0bi = nn.Linear(self.d_inner, self.dt_rank, bias=False, **factory_kwargs)
+            self.dt_projbi = deepcopy(self.dt_proj)
 
 
     def forward(self, hidden_states, inference_params=None):
@@ -512,9 +521,10 @@ class S6MambaModulePosEmb(nn.Module):
                 x = x_poss
 
         else:
-            B = self.B_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
-            C = self.C_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
-            dt = self.dt_proj0(rearrange(x, "b d l -> (b l) d"))  # (bl d)
+            x_ = rearrange(x, "b d l -> (b l) d")
+            B = self.B_proj(x_)  # (bl d)
+            C = self.C_proj(x_)  # (bl d)
+            dt = self.dt_proj0(x_)  # (bl d)
 
         dt = self.dt_proj.weight @ dt.t()
         dt = rearrange(dt, "d (b l) -> b d l", l=seqlen)
@@ -535,12 +545,23 @@ class S6MambaModulePosEmb(nn.Module):
         )
         if self.bi:
             A2 = -torch.exp(self.A2_log.float())
+
+            x_ = rearrange(x.flip(-1), "b d l -> (b l) d")
+            B_bi = self.B_projbi(x_)  # (bl d)
+            C_bi = self.C_projbi(x_)  # (bl d)
+            dt_bi = self.dt_proj0bi(x_)  # (bl d)
+
+            dt_bi = self.dt_projbi.weight @ dt_bi.t()
+            dt_bi = rearrange(dt_bi, "d (b l) -> b d l", l=seqlen)
+            B_bi = rearrange(B_bi, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
+            C_bi = rearrange(C_bi, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
+
             y2 = selective_scan_fn(
                 x.flip(-1),
-                dt.flip(-1),
+                dt_bi,
                 A2,
-                B.flip(-1),
-                C.flip(-1),
+                B_bi,
+                C_bi,
                 self.D2.float(),
                 z=z.flip(-1),
                 delta_bias=self.dt_proj.bias.float(),

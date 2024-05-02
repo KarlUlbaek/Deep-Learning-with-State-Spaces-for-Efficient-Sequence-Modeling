@@ -130,7 +130,7 @@ def _layer_norm_fwd(
     if residual is not None:
         assert residual.stride(-1) == 1
         assert residual.shape == (M, N)
-    assert weight.shape == (N,)
+    assert weight.shape == (N,), "but shape was {} and {} respectivly".format(weight.shape, N)
     assert weight.stride(-1) == 1
     if bias is not None:
         assert bias.stride(-1) == 1

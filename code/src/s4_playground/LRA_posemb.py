@@ -156,6 +156,7 @@ if __name__ == "__main__":
    from s4_playground.misc import AAN_tensor_dataset
 
    AAN_dataset = AAN_tensor_dataset("../data")
+   next(iter(AAN_dataset.train_dataloader()))
 
    data = CIFAR10("cifar")
    data.setup("../data/cifar10")
@@ -167,17 +168,19 @@ if __name__ == "__main__":
    #
    data = IMDB("imdb")
    data.l_max = 1024
-   data.setup("../data")
+   data.setup("../data/imdb")
    IMDBtoken = deepcopy(data)
    # #
-   # data = PathFinder("pathfinder")
-   # data.setup("../data")
+   data = PathFinder("pathfinder")
+   data.setup("../data")
    #data.setup("../data")
-   # Pathfindercont = deepcopy(data)
-   # data.tokenize = True
-   # data.setup("../data")
-   # #data.setup("../data")
-   # Pathfindertoken = deepcopy(data)
+   Pathfindercont = deepcopy(data)
+   data.tokenize = True
+   data.setup("../data")
+   #data.setup("../data")
+   Pathfindertoken = deepcopy(data)
+
+
    d_model = 116
    d_state = 16
    #bi = ["paper_bi", "stacked_bi", "sequential_bi", "sequential_bi_tied", "half_dim_bi", "", "placebo"]
@@ -186,18 +189,31 @@ if __name__ == "__main__":
    # m1 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
    #                       fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
    m1 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": False})
+                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"},
+                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False})
    m2 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": True})
-
+                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"},
+                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False},
+                         pos_emb = {"loc":"all"})
    m3 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast,
-                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": False})
+                         fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"},
+                         pos_emb = {"loc":"all"})
+
    m4 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
-                         fused_add_norm=fast, rms_norm=fast,
-                         bi_module={"d_model_scale": 0.66, "d_state_scale":1.0, "placebo": True})
+                         fused_add_norm=fast, rms_norm=fast, bi_s6 = {"bi":True},
+                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False})
+
+   m5 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                         fused_add_norm=fast, rms_norm=fast, bi_s6 = {"bi":True},
+                         bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": False},
+                         pos_emb = {"b_c_dt_x":"b_c_dt", "loc":"all"})
+
+   m6 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+                         fused_add_norm=fast, rms_norm=fast, bi_s6 = {"bi":True},
+                         pos_emb = {"b_c_dt_x":"b_c_dt", "loc":"all"})
+   # m4 =    partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
+   #                       fused_add_norm=fast, rms_norm=fast,
+   #                       bi_module={"d_model_scale": 0.72, "d_state_scale":1.0, "placebo": True})
 
    # d_state = 64
    # d_model = 170
@@ -208,12 +224,10 @@ if __name__ == "__main__":
    #s4dMamba, s4dClassic]#, s4dMamba, s4Classic, s4dClassic, s6Mamba]
    #datasets = [IMDBtoken, CIFAR10token, CIFAR10cont, Pathfindertoken, Pathfindercont]
 
-   Models = [m1, m2, m3, m4]
+   Models = [m1, m2, m3, m4, m5, m6]
 
    datasets = [CIFAR10cont, IMDBtoken]#, CIFAR10cont] AAN_dataset
    #datasets = [Pathfindercont]
-
-   pos_embs = [{}]
 
    n_epochs = 25
    sched_epochs = int(n_epochs * 1.5)
@@ -262,46 +276,45 @@ if __name__ == "__main__":
          d_output = dataset.d_output
 
          for Model in Models:
-            for pos_emb in pos_embs:
-               succes = False # we rerun the model till it actually learns
-               while not succes:
-                  d_name = dataset.__class__.__name__
-                  d_name = (d_name+date_name_add+"token") if vocab_size is not None else (d_name+date_name_add+"cons")
-                  print(f"\n Running on {d_name}")
-                  model = Model(d_input=d_input, d_output=d_output, pos_emb=pos_emb, vocab_size=vocab_size,
-                                classification=dataset.classification)
+            succes = False # we rerun the model till it actually learns
+            while not succes:
+               d_name = dataset.__class__.__name__
+               d_name = (d_name+date_name_add+"token") if vocab_size is not None else (d_name+date_name_add+"cons")
+               print(f"\n Running on {d_name}")
+               model = Model(d_input=d_input, d_output=d_output, vocab_size=vocab_size,
+                             classification=dataset.classification)
 
-                  m_name, n_params = print_model_stats(model)
-                  m_name += model_name_add + str(list(pos_emb.values())) + model.s4_kwargs.get("bi", "")
-                  if hasattr(model, "bi_s6"): m_name = m_name+"_bi" if model.bi_s6.get("bi", 0) else m_name
-                  if hasattr(model, "bi_module"):
-                     m_name = (m_name + "_bi_mod") if model.bi_module else m_name
-                     m_name = m_name + "_placebo" if model.bi_module.get("placebo", 0) else m_name
+               m_name, n_params = print_model_stats(model)
+               m_name += model_name_add + str(list(model.pos_emb.values())) + model.s4_kwargs.get("bi", "")
+               if hasattr(model, "bi_s6"): m_name = m_name+"_bi" if model.bi_s6.get("bi", 0) else m_name
+               if hasattr(model, "bi_module"):
+                  m_name = (m_name + "_BIMODULE") if model.bi_module else m_name
+                  m_name = m_name + "_placebo" if model.bi_module.get("placebo", 0) else m_name
 
-                  print(m_name)
-                  model = model.to(d)
-                  #print(model)
-                  optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay)
-                  #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
+               print(m_name)
+               model = model.to(d)
+               #print(model)
+               optimizer, scheduler = setup_optimizer(model, lr=lr, epochs=sched_epochs, weight_decay=weight_decay)
+               #scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 1, 2)
 
-                  if test_throughput:
-                     data_throughput(train_loader, d_name)
-                     model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
+               if test_throughput:
+                  #data_throughput(train_loader, d_name)
+                  model_throughput(deepcopy(model), model.vocab_size, d_input=d_input, b=b, L=L)
 
-                  if test_mode or not wandb_logging:
-                     wandb_run = None
-                  else:
-                     print("Logging with wandb! Happens after 2. epoch!")
-                     wandb_run = partial(wandb.init, project=d_name+wandb_name, name=m_name,
-                                         config={"model":m_name, "data":d_name, "lr":lr, "b": b, "weight_decay":weight_decay,
-                                                 "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
-                                                 "d_model":model.d_model, "n_params": n_params})
+               if test_mode or not wandb_logging:
+                  wandb_run = None
+               else:
+                  print("Logging with wandb! Happens after 2. epoch!")
+                  wandb_run = partial(wandb.init, project=d_name+wandb_name, name=m_name,
+                                      config={"model":m_name, "data":d_name, "lr":lr, "b": b, "weight_decay":weight_decay,
+                                              "n_layer":model.n_layer, "d_state":model.d_state, "dropout": model.dropout,
+                                              "d_model":model.d_model, "n_params": n_params})
 
-                  succes = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
-                                   criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
-                                   wandb_run=wandb_run, classification=dataset.classification)
+               succes = trainer(model=model, train_loader=train_loader, eval_loader=eval_loader, test_mode=test_mode,
+                                criterion=criterion, optimizer=optimizer, scheduler=scheduler, n_epochs=n_epochs,
+                                wandb_run=wandb_run, classification=dataset.classification)
 
-                  model = model.to("cpu")
+               model = model.to("cpu")
 
 
 
