@@ -1,0 +1,165 @@
+Wed May  1 15:27:45 2024
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.54.15              Driver Version: 550.54.15      CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-PCIE-40GB          On  |   00000000:86:00.0 Off |                    0 |
+| N/A   25C    P0             30W /  250W |       0MiB /  40960MiB |      0%   E. Process |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+/zhome/fb/d/137704/Desktop/12/code/src
+SPEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEED
+SPEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEED
+SPEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEED
+SPEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEED
+SPEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEED
+datasets: ['CIFAR10']
+models: ['MambaModel', 'MambaModel', 'MambaModel', 'MambaModel', 'MambaModel']
+using bidirectional s6
+####################################################################################
+MODEL: MambaModel_s6_bi
+trainable: 0.585m,
+n_layers: 6, d_model: 107, d_state: 16
+far/back mem GB: 0.76, 4.57
+far/back speed b/s: 42.1, 9.9
+estimated training time: 17m
+MANYREPS! of model throughput
+DATA: CIFAR10cons
+loader speed (size=64): b/s: 67.4
+hparams: e:15, b:64, lr:0.001, w_d:0.01, L:1024, drop:0.1
+using bidirectional s6
+####################################################################################
+MODEL: MambaModel_s6_bi
+trainable: 0.585m,
+n_layers: 6, d_model: 107, d_state: 16
+far/back mem GB: 0.76, 4.50
+far/back speed b/s: 42.0, 10.9
+estimated training time: 16m
+MANYREPS! of model throughput
+DATA: CIFAR10cons
+loader speed (size=64): b/s: 67.8
+hparams: e:15, b:64, lr:0.001, w_d:0.01, L:1024, drop:0.1
+####################################################################################
+MODEL: MambaModel_s6
+trainable: 0.586m,
+n_layers: 6, d_model: 116, d_state: 16
+far/back mem GB: 0.51, 2.14
+far/back speed b/s: 72.8, 16.4
+estimated training time: 10m
+MANYREPS! of model throughput
+DATA: CIFAR10cons
+loader speed (size=64): b/s: 67.2
+hparams: e:15, b:64, lr:0.001, w_d:0.01, L:1024, drop:0.1
+####################################################################################
+MODEL: MambaModel_diagsequential_bi
+trainable: 0.557m,
+n_layers: 6, d_model: 108, d_state: 16
+far/back mem GB: 0.97, 5.81
+far/back speed b/s: 43.8, 10.0
+estimated training time: 17m
+MANYREPS! of model throughput
+DATA: CIFAR10cons
+loader speed (size=64): b/s: 69.3
+hparams: e:15, b:64, lr:0.001, w_d:0.01, L:1024, drop:0.1
+####################################################################################
+MODEL: MambaModel_diag
+trainable: 0.563m,
+n_layers: 6, d_model: 116, d_state: 16
+far/back mem GB: 0.92, 5.00
+far/back speed b/s: 63.9, 14.9
+estimated training time: 11m
+MANYREPS! of model throughput
+DATA: CIFAR10cons
+loader speed (size=64): b/s: 68.8
+hparams: e:15, b:64, lr:0.001, w_d:0.01, L:1024, drop:0.1
+TESTOVERBREAKING!
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@hpc.dtu.dk>
+Subject: Job 21666466: <SPEED> in cluster <dcc> Done
+
+Job <SPEED> was submitted from host <n-62-12-19> by user <s183931> in cluster <dcc> at Wed May  1 14:26:16 2024
+Job was executed on host(s) <4*n-62-12-21>, in queue <gpua100>, as user <s183931> in cluster <dcc> at Wed May  1 15:27:43 2024
+</zhome/fb/d/137704> was used as the home directory.
+</zhome/fb/d/137704/Desktop/12/code/src> was used as the working directory.
+Started at Wed May  1 15:27:43 2024
+Terminated at Wed May  1 15:30:34 2024
+Results reported at Wed May  1 15:30:34 2024
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+#!/bin/sh
+### General options
+### –- specify queue --
+#BSUB -q gpua100
+#BSUB -J SPEED
+### -- ask for number of cores (default: 1) --
+#BSUB -n 4
+### -- Select the resources: 1 gpu in exclusive process mode --
+#BSUB -gpu "num=1:mode=exclusive_process"
+### -- set walltime limit: hh:mm --  maximum 24 hours for GPU-queues right now
+#BSUB -W 00:10
+# request 5GB of system-memory
+#BSUB -R "rusage[mem=10GB]"
+### -- set the email address --
+# please uncomment the following line and put in your e-mail address,
+# if you want to receive e-mail notifications on a non-default address
+
+### -- Specify the output and error file. %J is the job-id --
+### -- -o and -e mean append, -oo and -eo mean overwrite --
+#BSUB -o gpu_%J.out
+#BSUB -e gpu_%J.err
+# -- end of LSF options --
+
+nvidia-smi
+# Load the cuda module
+module load python3/3.10.11
+module load cuda/11.7
+
+pwd
+
+source ../12venv/bin/activate
+
+python s4_playground/LRA_all2.py
+
+
+
+
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   135.22 sec.
+    Max Memory :                                 2992 MB
+    Average Memory :                             2049.33 MB
+    Total Requested Memory :                     40960.00 MB
+    Delta Memory :                               37968.00 MB
+    Max Swap :                                   5 MB
+    Max Processes :                              4
+    Max Threads :                                10
+    Run time :                                   170 sec.
+    Turnaround time :                            3858 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <gpu_21666466.err> for stderr output of this job.
+
