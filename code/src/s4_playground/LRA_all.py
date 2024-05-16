@@ -67,6 +67,12 @@ diag_bi =   [partial(MambaModel, n_layer=n_layer, d_model=108, d_state=d_state, 
                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs", "bi":"sequential_bi"})
                 ]
 
+diag_BIMODUEL =   [partial(MambaModel, n_layer=n_layer, d_model=108, d_state=d_state, dropout=dropout,
+                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
+                           bi_module = {"d_model_scale":1.0, "d_state_scale":1.0, "placebo":False,
+                           "tie_linear_proj":True})
+                ]
+
 diag =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"})
                 ]
@@ -79,8 +85,8 @@ diag =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dro
 #diagbi 2
 #s6bi_pla 1
 
-models = s6_bi + s6_bi + s6 + diag_bi + diag
-datasets = [CIFAR10cont]
+models = diag_BIMODUEL*5# + s6_bi + s6 + diag_bi + diag
+datasets = [IMDBtoken]
 
 n_epochs = 15
 b = 64
