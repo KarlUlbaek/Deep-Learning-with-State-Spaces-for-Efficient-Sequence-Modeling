@@ -174,17 +174,34 @@ def setup_optimizer(model, opt=AdamW, Sched=CosSched, lr=1e-3, lr_scale = 0.1, w
 from s4_playground.rope_fork import RotaryEmbedding
 
 class RotaryEmbeddingCustom(torch.nn.Module):
-   def __init__(self, d_model , loc="all", BDL_shape=True, theta=10_000, seq_norm=None, learned_freq=False, repeat=0,
-                b_c_dt_x=None):
+   def __init__(self, d_model, loc="all", BDL_shape=True, theta=10_000, seq_norm=None, learned_freq=False, repeat=0,
+                b_c_dt_x=None, classic_learned="", tie_classic_learned=False):
       super().__init__()
       # b_c_dt_x is only used by s6mamba and actually not even in here
+      self.classic_learned = classic_learned
+      self.tie_classic_learned = tie_classic_learned
+      if self.classic_learned:
+         assert classic_learned == "classic_learned", "the dict value for the key classic_learned must be a string named classic_learned"
+         assert seq_norm is not None, "seq_norm needs to be the length of the seq since classic_learned is True"
+         xavier = torch.sqrt(torch.tensor(6)) / (torch.sqrt(torch.tensor(d_model)*2))
+         if BDL_shape:
+            xavier = torch.nn.Parameter(torch.FloatTensor(d_model, seq_norm).uniform_(-xavier, xavier))
+         else:
+            xavier = torch.nn.Parameter(torch.FloatTensor(seq_norm, d_model).uniform_(-xavier, xavier))
+         self.classic_learned_param = torch.nn.Linear(xavier.shape[0], xavier.shape[1])
+         self.classic_learned_param.weight = xavier
 
-      self.pos_emb_layer = RotaryEmbedding(dim=d_model, theta=theta, seq_norm=seq_norm, learned_freq=learned_freq, repeat=repeat)
-      assert loc in ["all", "first", "everyother"], "los is {} of type {}".format(loc, type(loc))
+      else:
+         self.pos_emb_layer = RotaryEmbedding(dim=d_model, theta=theta, seq_norm=seq_norm, learned_freq=learned_freq, repeat=repeat)
+         assert loc in ["all", "first", "everyother"], "los is {} of type {}".format(loc, type(loc))
+
       self.loc = loc
       self.BDL_shape = BDL_shape
 
    def forward(self, x, layer_idx):
+      if self.classic_learned:
+         return x + self.classic_learned_param.weight
+
       if self.BDL_shape:
          if self.loc == "all":
             return self.pos_emb_layer.rotate_queries_or_keys(x.transpose(-1, -2)).transpose(-1, -2)

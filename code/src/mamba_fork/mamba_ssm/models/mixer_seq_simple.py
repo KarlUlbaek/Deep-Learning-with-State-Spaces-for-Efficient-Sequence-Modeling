@@ -212,6 +212,13 @@ class MambaModel(nn.Module):
                 for i in range(n_layer)
             ]
         )
+        if self.pos_emb:
+            if self.pos_emb.get("tie_classic_learned", 0):
+                first = self.layers[0].mixer.pos_emb_layer.classic_learned_param.weight
+                for i in range(1,n_layer):
+                    self.layers[i].mixer.pos_emb_layer.classic_learned_param.weight = first
+
+
 
         self.norm_f = (nn.LayerNorm if not rms_norm else RMSNorm)(
             self.d_model, eps=norm_epsilon, #**factory_kwargs

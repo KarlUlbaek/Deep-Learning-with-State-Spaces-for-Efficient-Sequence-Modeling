@@ -52,7 +52,7 @@ IMDBtoken = deepcopy(data)
 d_model = 116
 d_state = 16
 n_layer = 6
-dropout = 0.1
+dropout = 0.15
 # m1 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
 #                 fused_add_norm=fast, rms_norm=fast)]
 s6_bi =   [partial(MambaModel, n_layer=n_layer, d_model=107, d_state=d_state, dropout=dropout,
@@ -69,20 +69,26 @@ diag_bi =   [partial(MambaModel, n_layer=n_layer, d_model=108, d_state=d_state, 
 
 diag_pos =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                      pos_emb={"loc":"all", "repeat":32})
-                ]
+                      pos_emb={"loc":"all", "classic_learned":"classic_learned", "seq_norm":1024,
+                               "tie_classic_learned":""})]
+
 diag_pos1 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                      pos_emb={"loc":"all", "repeat":32, "theta":10})
-                ]
-diag_pos2 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                      pos_emb={"loc":"all", "repeat":32, "learned_freq":True})
-                ]
-diag_pos3 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
-                fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
-                      pos_emb={"loc":"all", "repeat":32, "learned_freq":True, "theta":10})
-                ]
+                      pos_emb={"loc":"all", "classic_learned":"classic_learned", "seq_norm":1024,
+                               "tie_classic_learned":"tied"})]
+#                 ]
+# diag_pos1 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
+#                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
+#                       pos_emb={"loc":"all", "repeat":32, "theta":10})
+#                 ]
+# diag_pos2 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
+#                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
+#                       pos_emb={"loc":"all", "repeat":32, "learned_freq":True})
+#                 ]
+# diag_pos3 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state, dropout=dropout,
+#                 fused_add_norm=fast, rms_norm=fast, s4_kwargs={"mode": "diag", "init": "legs"},
+#                       pos_emb={"loc":"all", "repeat":32, "learned_freq":True, "theta":10})
+#                 ]
 #imdb
 #s6 2
 #s6bi 4
@@ -92,14 +98,14 @@ diag_pos3 =   [partial(MambaModel, n_layer=n_layer, d_model=116, d_state=d_state
 #diagbi 2
 #s6bi_pla 1
 
-models = diag_pos+diag_pos1+diag_pos2+diag_pos3# + s6_bi + s6 + diag_bi + diag
+models = diag_pos + diag_pos1#+diag_pos1+diag_pos2+diag_pos3# + s6_bi + s6 + diag_bi + diag
 datasets = [CIFAR10cont]
 
-n_epochs = 15
+n_epochs = 25
 b = 64
 num_workers = 0
 d = "cuda"
-lr = 1e-3
+lr = 3e-3
 lr_scale = 0.1 # 0.1
 weight_decay = 0.01 # 0.01
 
@@ -110,7 +116,7 @@ run_test_run = True
 wandb_logging = True
 wandb_name = "_bi_v3" #""
 data_name_add = ""
-model_name_add = ""
+model_name_add = "POS"
 
 test_modes = [True, False] if run_test_run else [False]
 print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
