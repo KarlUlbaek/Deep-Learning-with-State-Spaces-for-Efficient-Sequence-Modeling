@@ -52,7 +52,7 @@ IMDBtoken = deepcopy(data)
 d_model = 116
 d_state = 16
 n_layer = 6
-dropout = 0.15
+dropout = 0.1
 # m1 =   [partial(MambaModel, n_layer=n_layer, d_model=d_model, d_state=d_state, dropout=dropout,
 #                 fused_add_norm=fast, rms_norm=fast)]
 s6_bi =   [partial(MambaModel, n_layer=n_layer, d_model=107, d_state=d_state, dropout=dropout,
@@ -99,7 +99,7 @@ n_epochs = 15
 b = 64
 num_workers = 0
 d = "cuda"
-lr = 3e-3
+lr = 1e-3
 lr_scale = 0.1 # 0.1
 weight_decay = 0.01 # 0.01
 
@@ -110,7 +110,7 @@ run_test_run = True
 wandb_logging = True
 wandb_name = "_bi_v3" #""
 data_name_add = ""
-model_name_add = "pos_32x32"
+model_name_add = ""
 
 test_modes = [True, False] if run_test_run else [False]
 print("datasets:", [dataset.__class__.__name__ for dataset in datasets])
