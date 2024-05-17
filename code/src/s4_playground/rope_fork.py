@@ -83,7 +83,8 @@ class RotaryEmbedding(Module):
         theta_rescale_factor = 1.,
         seq_before_head_dim = False,
         cache_if_possible = True,
-        seq_norm = None
+        seq_norm = None,
+        repeat = 0
     ):
         super().__init__()
         # proposed by reddit user bloc97, to rescale rotary embeddings to longer sequence length without fine-tuning
@@ -93,6 +94,7 @@ class RotaryEmbedding(Module):
         #theta *= theta_rescale_factor ** (dim / (dim - 2))
 
         self.freqs_for = freqs_for
+        self.repeat = repeat
 
         if exists(custom_freqs):
             freqs = custom_freqs
@@ -149,7 +151,13 @@ class RotaryEmbedding(Module):
         self.register_buffer(key, value, persistent = False)
 
     def get_seq_pos(self, seq_len, device, dtype, offset = 0):
-        return (torch.arange(seq_len, device = device, dtype = dtype) + offset) / self.interpolate_factor
+        #image is 32x32, so we repeat same 0..31 for all rows to tell the SSP that a new pixel-row has started
+        if self.repeat:
+            assert self.repeat**2 == seq_len, "dimension does not match"
+            t = torch.arange(self.repeat, device = device, dtype = dtype) + offset
+            return t.repeat(self.repeat)
+        else:
+            return (torch.arange(seq_len, device = device, dtype = dtype) + offset) / self.interpolate_factor
 
     def rotate_queries_or_keys(self, t, seq_dim = None, offset = 0, freq_seq_len = None):
         seq_dim = default(seq_dim, self.default_seq_dim)
