@@ -1,6 +1,6 @@
 ### Overview
 
-This repo features features multiple forks from other repos. Typically the forks has been highly modified by me but all credit goes to the respective repos:
+This repo features multiple forks from other repos. Typically the forks has been highly modified by me but all credit goes to the respective repos:
 
 https://github.com/HazyResearch/hyena-dna
 
