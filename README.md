@@ -1,4 +1,4 @@
-### Overview
+## Credits
 
 This repo features multiple forks from other repos. Typically the forks has been highly modified by me but all credit goes to the respective repos:
 
@@ -13,7 +13,7 @@ https://github.com/lucidrains/rotary-embedding-torch
 
 
 
-The main code developed by me is found in src/thesis_src which contains:
+## The main code developed by me is found in src/thesis_src which contains:
 
 **DNA_dataloader.py:** Modifed dataloader from the hyenaDNA repo
 
